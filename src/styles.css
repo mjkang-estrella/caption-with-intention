@@ -1,6 +1,6 @@
     @font-face {
       font-family: "Roboto Flex Local";
-      src: url("Instal Font - RobotoFlex.ttf") format("truetype");
+      src: url("../Instal Font - RobotoFlex.ttf") format("truetype");
       font-display: swap;
     }
 
@@ -249,23 +249,26 @@
       min-height: 0;
       display: grid;
       place-items: center;
-      padding: 26px;
+      padding: 12px;
       overflow: hidden;
       background: var(--floor);
     }
 
     .preview-shell {
       width: 100%;
-      max-width: 760px;
+      height: 100%;
       display: grid;
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto auto;
       align-items: center;
       justify-items: center;
+      align-content: center;
+      gap: 10px;
     }
 
     .phone-frame {
-      width: min(100%, 760px, 92vh);
+      width: min(100%, calc((100vh - 226px) * 16 / 9));
       min-width: 0;
+      max-height: 100%;
       aspect-ratio: 16 / 9;
       border-radius: 8px;
       position: relative;
@@ -305,7 +308,7 @@
       position: absolute;
       left: 24px;
       right: 24px;
-      bottom: 88px;
+      bottom: 28px;
       text-align: center;
       z-index: 2;
       font-family: var(--font-cwi);
@@ -354,11 +357,6 @@
     }
 
     .preview-control {
-      position: absolute;
-      left: 50%;
-      bottom: 22px;
-      transform: translateX(-50%);
-      z-index: 3;
       display: flex;
       align-items: center;
       gap: 12px;
@@ -474,8 +472,8 @@
 
     .segment {
       position: absolute;
-      top: 11px;
-      height: 31px;
+      top: 5px;
+      min-height: var(--target);
       border: 1px solid var(--line-bright);
       border-radius: 5px;
       background: var(--panel-lift);
@@ -797,7 +795,7 @@
 
     .word-picker-button,
     .word-nav-button {
-      min-height: 34px;
+      min-height: var(--target);
       border: 1px solid var(--line);
       border-radius: 6px;
       background: var(--panel);
@@ -1022,16 +1020,8 @@
       position: relative;
     }
 
-    .speaker-custom-select[open] {
+    .speaker-custom-select.is-open {
       z-index: 8;
-    }
-
-    .speaker-custom-select summary {
-      list-style: none;
-    }
-
-    .speaker-custom-select summary::-webkit-details-marker {
-      display: none;
     }
 
     .speaker-custom-trigger,
@@ -1065,7 +1055,7 @@
       color: var(--ink-soft);
     }
 
-    .speaker-custom-select[open] .speaker-custom-trigger::after {
+    .speaker-custom-select.is-open .speaker-custom-trigger::after {
       transform: rotate(225deg) translateY(-1px);
     }
 
@@ -1105,10 +1095,12 @@
       border-color: transparent;
       border-radius: 6px;
       cursor: pointer;
+      min-height: var(--target);
     }
 
     .speaker-option:hover,
-    .speaker-option[aria-selected="true"] {
+    .speaker-option[aria-selected="true"],
+    .speaker-option:focus-visible {
       border-color: var(--line-bright);
       background: var(--panel-lift);
     }
@@ -1289,8 +1281,8 @@
       }
 
       .phone-frame {
-        width: min(56vw, 620px, 86vh);
-        min-width: min(360px, 100%);
+        width: min(100%, calc((100vh - 210px) * 16 / 9));
+        min-width: 0;
       }
     }
 
@@ -1311,6 +1303,7 @@
 
       .preview-zone {
         min-height: 300px;
+        padding: 12px;
       }
 
       .tabs {
@@ -1410,7 +1403,7 @@
       }
 
       .phone-frame {
-        width: min(92vw, 560px);
+        width: min(100%, 560px);
         min-width: 0;
       }
 

@@ -132,7 +132,9 @@ function createSampleProject() {
         importError: "",
         importWarnings: [],
         playbackKey: "",
-        inspectorSize: INSPECTOR_COLUMN_DEFAULT
+        inspectorSize: INSPECTOR_COLUMN_DEFAULT,
+        speakerSelectorOpen: false,
+        activeSpeakerOptionId: ""
     };
     const els = {};
     document.addEventListener("DOMContentLoaded", init);
@@ -300,7 +302,7 @@ function createSampleProject() {
             if (!segment)
                 return;
             state.selectedCueId = segment.dataset.cueId;
-            state.selectedWordId = "";
+            state.selectedWordId = segment.dataset.wordId || "";
             renderAll();
         });
     }
@@ -322,14 +324,14 @@ function createSampleProject() {
             renderAll();
         });
         els.inspector.addEventListener("click", (event) => {
+            const speakerTrigger = event.target.closest("[data-speaker-trigger]");
+            if (speakerTrigger) {
+                toggleSpeakerSelector();
+                return;
+            }
             const speakerOption = event.target.closest("[data-cue-speaker-option]");
             if (speakerOption) {
-                const cue = getSelectedCue();
-                if (cue && cue.type === "dialogue") {
-                    cue.speakerId = speakerOption.dataset.cueSpeakerOption;
-                    cue.offCamera = Boolean(getSpeaker(cue.speakerId) && getSpeaker(cue.speakerId).defaultOffCamera);
-                    renderAll();
-                }
+                selectCueSpeaker(speakerOption.dataset.cueSpeakerOption);
                 return;
             }
             const wordPick = event.target.closest("[data-inspector-word-id]");
@@ -355,6 +357,7 @@ function createSampleProject() {
                 return;
             }
         });
+        els.inspector.addEventListener("keydown", handleSpeakerSelectorKeydown);
     }
     function setupInspectorResize() {
         if (!els.inspectorResize)
@@ -574,13 +577,14 @@ function createSampleProject() {
               ${state.cwi.cues.map((cue) => {
             const speaker = getSpeaker(cue.speakerId);
             const active = cue.id === state.selectedCueId;
+            const editId = cueEditDomId(cue.id);
             const cueTypeClass = cue.type === "dialogue" ? "" : ` ${cue.type}`;
             const speakerMarkup = speaker
                 ? `<div class="speaker"><i style="background: ${escapeAttr(speaker.color)}"></i>${escapeHtml(speaker.name)}</div>`
                 : `<div class="speaker"><i style="background: var(--ink-dim)"></i>${escapeHtml(cue.type)}</div>`;
             return `
             <div class="cue${active ? " active" : ""}" data-cue-id="${escapeAttr(cue.id)}">
-              <button type="button" class="cue-select-surface" data-cue-select="${escapeAttr(cue.id)}" aria-expanded="${active}">
+              <button type="button" class="cue-select-surface" data-cue-select="${escapeAttr(cue.id)}" aria-expanded="${active}"${active ? ` aria-controls="${escapeAttr(editId)}"` : ""}>
                 <div>
                   <div class="cue-time">${formatTime(cue.start)}</div>
                   ${speakerMarkup}
@@ -589,7 +593,7 @@ function createSampleProject() {
                   ${renderCueWordsForTranscript(cue, current.wordId)}
                 </div>
               </button>
-              ${active ? renderTranscriptCueEditor(cue) : ""}
+              ${active ? renderTranscriptCueEditor(cue, editId) : ""}
             </div>
           `;
         }).join("")}
@@ -600,9 +604,9 @@ function createSampleProject() {
           </div>
         `;
     }
-    function renderTranscriptCueEditor(cue) {
+    function renderTranscriptCueEditor(cue, editId) {
         return `
-          <div class="cue-edit-grid">
+          <div class="cue-edit-grid" id="${escapeAttr(editId)}">
             <div class="control-group">
               <label class="control-label" for="${escapeAttr(cue.id)}TranscriptType">Cue type</label>
               <select class="control-select" id="${escapeAttr(cue.id)}TranscriptType" data-transcript-control="type" data-cue-id="${escapeAttr(cue.id)}">
@@ -962,6 +966,17 @@ function createSampleProject() {
             : "No class selected";
         const speakerName = speaker ? speaker.name : "No speaker selected";
         const disabled = cue.type !== "dialogue";
+        const options = [
+            { id: "", name: "No speaker", meta: "No class selected", color: "var(--ink-dim)" },
+            ...state.cwi.speakers.map((item) => ({
+                id: item.id,
+                name: item.name,
+                meta: roleLabel(item.role),
+                color: item.color
+            }))
+        ];
+        const activeOptionId = state.activeSpeakerOptionId || cue.speakerId || "";
+        const listboxId = "cueSpeakerOptions";
         return `
           <div class="control-group">
             <div class="control-label">Speaker</div>
@@ -974,36 +989,118 @@ function createSampleProject() {
                 </span>
               </div>
             ` : `
-              <details class="speaker-custom-select">
-                <summary class="speaker-custom-trigger">
+              <div class="speaker-custom-select${state.speakerSelectorOpen ? " is-open" : ""}">
+                <button type="button" class="speaker-custom-trigger" data-speaker-trigger aria-haspopup="listbox" aria-expanded="${state.speakerSelectorOpen}" aria-controls="${listboxId}" aria-activedescendant="${state.speakerSelectorOpen ? speakerOptionDomId(activeOptionId) : ""}">
                   <span class="speaker-chip" style="background: ${escapeAttr(inheritedColor)}"></span>
                   <span class="speaker-custom-copy">
                     <span class="speaker-name">${escapeHtml(speakerName)}</span>
                     <span class="speaker-meta">${escapeHtml(speakerMeta)}</span>
                   </span>
-                </summary>
-                <div class="speaker-options" role="listbox" aria-label="Choose speaker">
-                  <button type="button" class="speaker-option" data-cue-speaker-option="" aria-selected="${cue.speakerId === ""}">
-                    <span class="speaker-chip" style="background: var(--ink-dim)"></span>
-                    <span class="speaker-custom-copy">
-                      <span class="speaker-name">No speaker</span>
-                      <span class="speaker-meta">No class selected</span>
-                    </span>
-                  </button>
-                  ${state.cwi.speakers.map((item) => `
-                    <button type="button" class="speaker-option" data-cue-speaker-option="${escapeAttr(item.id)}" aria-selected="${cue.speakerId === item.id}">
-                      <span class="speaker-chip" style="background: ${escapeAttr(item.color)}"></span>
+                </button>
+                ${state.speakerSelectorOpen ? `
+                  <div class="speaker-options" id="${listboxId}" role="listbox" aria-label="Choose speaker">
+                    ${options.map((option) => `
+                    <div role="option" tabindex="${option.id === activeOptionId ? "0" : "-1"}" id="${speakerOptionDomId(option.id)}" class="speaker-option" data-cue-speaker-option="${escapeAttr(option.id)}" aria-selected="${cue.speakerId === option.id}">
+                      <span class="speaker-chip" style="background: ${escapeAttr(option.color)}"></span>
                       <span class="speaker-custom-copy">
-                        <span class="speaker-name">${escapeHtml(item.name)}</span>
-                        <span class="speaker-meta">${escapeHtml(roleLabel(item.role))}</span>
+                        <span class="speaker-name">${escapeHtml(option.name)}</span>
+                        <span class="speaker-meta">${escapeHtml(option.meta)}</span>
                       </span>
-                    </button>
-                  `).join("")}
-                </div>
-              </details>
+                    </div>
+                    `).join("")}
+                  </div>
+                ` : ""}
+              </div>
             `}
           </div>
         `;
+    }
+    function toggleSpeakerSelector() {
+        const cue = getSelectedCue();
+        state.speakerSelectorOpen = !state.speakerSelectorOpen;
+        state.activeSpeakerOptionId = cue ? cue.speakerId || "" : "";
+        renderInspector();
+        if (state.speakerSelectorOpen) {
+            focusSpeakerOption(state.activeSpeakerOptionId);
+        }
+    }
+    function selectCueSpeaker(speakerId) {
+        const cue = getSelectedCue();
+        if (cue && cue.type === "dialogue") {
+            cue.speakerId = speakerId;
+            cue.offCamera = Boolean(getSpeaker(cue.speakerId) && getSpeaker(cue.speakerId).defaultOffCamera);
+        }
+        state.speakerSelectorOpen = false;
+        state.activeSpeakerOptionId = "";
+        renderAll();
+        const trigger = els.inspector.querySelector("[data-speaker-trigger]");
+        if (trigger)
+            trigger.focus();
+    }
+    function handleSpeakerSelectorKeydown(event) {
+        const trigger = event.target.closest("[data-speaker-trigger]");
+        const option = event.target.closest("[data-cue-speaker-option]");
+        if (!trigger && !option)
+            return;
+        if (trigger) {
+            if (event.key === "Enter" || event.key === " " || event.key === "ArrowDown") {
+                event.preventDefault();
+                const cue = getSelectedCue();
+                state.speakerSelectorOpen = true;
+                state.activeSpeakerOptionId = cue ? cue.speakerId || "" : "";
+                renderInspector();
+                focusSpeakerOption(state.activeSpeakerOptionId);
+            }
+            return;
+        }
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            selectCueSpeaker(option.dataset.cueSpeakerOption);
+        }
+        else if (event.key === "Escape") {
+            event.preventDefault();
+            state.speakerSelectorOpen = false;
+            renderInspector();
+            const nextTrigger = els.inspector.querySelector("[data-speaker-trigger]");
+            if (nextTrigger)
+                nextTrigger.focus();
+        }
+        else if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
+            event.preventDefault();
+            moveActiveSpeakerOption(event.key);
+        }
+    }
+    function moveActiveSpeakerOption(key) {
+        const options = speakerOptionIds();
+        if (!options.length)
+            return;
+        const currentIndex = Math.max(0, options.indexOf(state.activeSpeakerOptionId));
+        let nextIndex = currentIndex;
+        if (key === "ArrowDown")
+            nextIndex = Math.min(options.length - 1, currentIndex + 1);
+        else if (key === "ArrowUp")
+            nextIndex = Math.max(0, currentIndex - 1);
+        else if (key === "Home")
+            nextIndex = 0;
+        else if (key === "End")
+            nextIndex = options.length - 1;
+        state.activeSpeakerOptionId = options[nextIndex];
+        renderInspector();
+        focusSpeakerOption(state.activeSpeakerOptionId);
+    }
+    function focusSpeakerOption(optionId) {
+        const option = els.inspector.querySelector(`#${speakerOptionDomId(optionId)}`);
+        if (option)
+            option.focus();
+    }
+    function speakerOptionIds() {
+        return ["", ...state.cwi.speakers.map((speaker) => speaker.id)];
+    }
+    function speakerOptionDomId(optionId) {
+        return `cueSpeakerOption-${optionId || "none"}`;
+    }
+    function cueEditDomId(cueId) {
+        return `cueEdit-${cueId}`;
     }
     function renderWordEditor(cue, word) {
         const words = cue.words || [];
