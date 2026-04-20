@@ -1,4 +1,4 @@
-const DEFAULT_MEDIA_SRC = "AE PROJECT/(Footage)/ASETS/Video/Cena_ref_CI_Template_v02a.mp4";
+const DEFAULT_MEDIA_SRC = "reference/AE PROJECT/(Footage)/ASETS/Video/Cena_ref_CI_Template_v02a.mp4";
 const CUE_TYPES = ["dialogue", "sound", "music"];
 const MOTIONS = ["pop", "none", "syllable"];
 const SPEAKER_ROLES = ["main", "supporting", "minor"];
