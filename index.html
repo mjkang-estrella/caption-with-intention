@@ -1,0 +1,938 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CWI Studio Wireframe</title>
+  <style>
+    @font-face {
+      font-family: "Roboto Flex Local";
+      src: url("Instal Font - RobotoFlex.ttf") format("truetype");
+      font-display: swap;
+    }
+
+    :root {
+      --ink: #f4f0e7;
+      --ink-soft: #bcb3a6;
+      --ink-dim: #a89d90;
+      --void: #070706;
+      --floor: #0e0d0b;
+      --panel: #14120f;
+      --panel-lift: #1c1813;
+      --rail: #262017;
+      --line: #342c22;
+      --line-bright: #53483a;
+      --orange: #f15a24;
+      --orange-quiet: #3b1d12;
+      --yellow: #e5e517;
+      --cyan: #17e5e5;
+      --red: #e51717;
+      --green: #47eb70;
+      --blue: #5e82ed;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.46);
+      --radius: 8px;
+      --target: 44px;
+      --focus-ring: #e5e517;
+      --font-ui: "Aptos", "Avenir Next", "Helvetica Neue", sans-serif;
+      --font-cwi: "Roboto Flex Local", "Aptos", "Avenir Next", sans-serif;
+      --surface-root-start: #0b0a09;
+      --surface-topbar: rgba(12, 11, 10, 0.96);
+      --surface-phone: #12100d;
+      --surface-timeline: #0a0908;
+      --surface-grid: #080706;
+      --surface-row-label: #100e0c;
+      --surface-inspector: #0c0b0a;
+      --surface-preview-control: rgba(5, 5, 4, 0.78);
+      --surface-caption: rgba(0, 0, 0, 0.72);
+      --media-border: #3a3025;
+      --primary-button-ink: #160804;
+      --safe-guide: rgba(244, 240, 231, 0.14);
+      --caption-idle: rgba(244, 240, 231, 0.72);
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--void);
+      color: var(--ink);
+      font-family: var(--font-ui);
+      font-size: 0.875rem;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+      cursor: pointer;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    .word:focus-visible,
+    .segment:focus-visible,
+    .phone-frame:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 3px;
+    }
+
+    svg {
+      width: 16px;
+      height: 16px;
+      display: block;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 52px minmax(0, 1fr);
+      background: linear-gradient(180deg, var(--surface-root-start) 0%, var(--void) 100%);
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) auto;
+      align-items: center;
+      gap: 16px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-topbar);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--orange);
+      border-radius: 50%;
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      right: -3px;
+      bottom: -3px;
+      border-radius: 50%;
+      background: var(--yellow);
+      border: 2px solid var(--void);
+    }
+
+    .brand-title {
+      font-weight: 800;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .project-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink-soft);
+      min-width: 0;
+    }
+
+    .project-name {
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 210px;
+    }
+
+    .small-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 26px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--ink-soft);
+      white-space: nowrap;
+    }
+
+    .top-actions {
+      justify-self: end;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .text-button,
+    .primary-button {
+      min-height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--ink-soft);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 13px;
+    }
+
+    .primary-button {
+      border-color: var(--orange);
+      background: var(--orange);
+      color: var(--primary-button-ink);
+      font-weight: 800;
+    }
+
+    .text-button,
+    .primary-button {
+      min-height: var(--target);
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 380px;
+    }
+
+    .stage {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) 192px;
+      border-right: 1px solid var(--line);
+    }
+
+    .preview-zone {
+      position: relative;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      padding: 26px;
+      overflow: hidden;
+      background: var(--floor);
+    }
+
+    .preview-shell {
+      display: grid;
+      grid-template-columns: minmax(260px, 340px);
+      align-items: center;
+      justify-items: center;
+    }
+
+    .phone-frame {
+      width: min(34vw, 330px);
+      min-width: 270px;
+      aspect-ratio: 9 / 16;
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      background: var(--surface-phone);
+      border: 1px solid var(--media-border);
+      box-shadow: var(--shadow);
+    }
+
+    .phone-frame::before {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border: 1px dashed var(--safe-guide);
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .media {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.54;
+      filter: saturate(0.82) contrast(1.05);
+    }
+
+    .media-vignette {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(7, 7, 6, 0.1) 0%, rgba(7, 7, 6, 0.08) 42%, rgba(7, 7, 6, 0.78) 100%);
+      z-index: 1;
+    }
+
+    .caption-safe {
+      position: absolute;
+      left: 24px;
+      right: 24px;
+      bottom: 88px;
+      text-align: center;
+      z-index: 2;
+      font-family: var(--font-cwi);
+    }
+
+    .caption-line {
+      display: inline;
+      padding: 4px 8px;
+      background: var(--surface-caption);
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+      color: var(--caption-idle);
+      font-size: 28px;
+      font-weight: 760;
+      line-height: 1.24;
+      text-transform: uppercase;
+    }
+
+    .caption-word {
+      display: inline-block;
+      margin: 0 2px;
+    }
+
+    .caption-word.spoken {
+      color: var(--cyan);
+    }
+
+    .caption-word.intent {
+      color: var(--yellow);
+      transform: translateY(-4px) scale(1.13);
+      font-weight: 980;
+    }
+
+    .preview-control {
+      position: absolute;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%);
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 52px;
+      padding: 0 14px;
+      background: var(--surface-preview-control);
+      border: 1px solid var(--safe-guide);
+      border-radius: 999px;
+      color: var(--ink-soft);
+    }
+
+    .play-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--void);
+      background: var(--ink);
+    }
+
+    .preview-button {
+      width: var(--target);
+      height: var(--target);
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--ink-soft);
+      display: grid;
+      place-items: center;
+    }
+
+    .time-readout {
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+    }
+
+    .timeline {
+      min-height: 0;
+      background: var(--surface-timeline);
+      border-top: 1px solid var(--line);
+      display: grid;
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    .timeline-grid {
+      min-width: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      position: relative;
+      display: grid;
+      grid-template-rows: 24px 54px 54px 54px;
+      background:
+        repeating-linear-gradient(90deg, transparent 0, transparent 89px, rgba(244, 240, 231, 0.06) 90px),
+        var(--surface-grid);
+    }
+
+    .ruler {
+      border-bottom: 1px solid var(--line);
+      position: relative;
+      color: var(--ink-dim);
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ruler span {
+      position: absolute;
+      top: 6px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 90px minmax(0, 1fr);
+      border-bottom: 1px solid rgba(52, 44, 34, 0.78);
+    }
+
+    .row-label {
+      border-right: 1px solid var(--line);
+      background: var(--surface-row-label);
+      color: var(--ink-dim);
+      display: flex;
+      align-items: center;
+      padding-left: 12px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .row-content {
+      position: relative;
+      min-width: 760px;
+    }
+
+    .wave {
+      position: absolute;
+      inset: 9px 18px;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      opacity: 0.72;
+    }
+
+    .wave i {
+      display: block;
+      width: 3px;
+      border-radius: 999px;
+      background: var(--line-bright);
+    }
+
+    .segment {
+      position: absolute;
+      top: 11px;
+      height: 31px;
+      border: 1px solid var(--line-bright);
+      border-radius: 5px;
+      background: var(--panel-lift);
+      color: var(--ink-soft);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .segment.active {
+      border-color: var(--orange);
+      background: var(--orange-quiet);
+      color: var(--ink);
+    }
+
+    .playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 42%;
+      width: 1px;
+      background: var(--orange);
+      z-index: 4;
+    }
+
+    .playhead::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -5px;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 8px solid var(--orange);
+    }
+
+    .side-panel {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: 44px minmax(0, 1fr) 304px;
+      background: var(--panel);
+    }
+
+    .tabs {
+      display: flex;
+      align-items: end;
+      border-bottom: 1px solid var(--line);
+      padding: 0 12px;
+      gap: 4px;
+    }
+
+    .tab {
+      height: 44px;
+      padding: 0 10px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--ink-dim);
+    }
+
+    .tab.active {
+      color: var(--ink);
+      border-color: var(--orange);
+      font-weight: 800;
+    }
+
+    .transcript {
+      min-height: 0;
+      overflow: auto;
+      padding: 14px;
+    }
+
+    .cue {
+      display: grid;
+      grid-template-columns: 68px minmax(0, 1fr);
+      gap: 12px;
+      padding: 10px 8px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      background: transparent;
+    }
+
+    .cue.active {
+      background: var(--panel-lift);
+      border-color: var(--line-bright);
+    }
+
+    .cue-time {
+      color: var(--ink-dim);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .speaker {
+      margin-top: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--ink-soft);
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .speaker i {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--cyan);
+    }
+
+    .cue-copy {
+      color: var(--ink-soft);
+      line-height: 1.6;
+    }
+
+    .word {
+      display: inline-block;
+      padding: 1px 4px;
+      margin: 0 -1px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+    }
+
+    .word.selected {
+      color: var(--void);
+      background: var(--yellow);
+      font-weight: 800;
+    }
+
+    .word.warn {
+      border-bottom-color: var(--orange);
+      color: var(--ink);
+    }
+
+    .inspector {
+      border-top: 1px solid var(--line);
+      display: grid;
+      grid-template-rows: 45px minmax(0, 1fr);
+      background: var(--surface-inspector);
+    }
+
+    .inspector-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .inspector-title {
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: 11px;
+    }
+
+    .inspector-title span {
+      color: var(--yellow);
+    }
+
+    .inspector-body {
+      overflow: auto;
+      padding: 14px;
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+
+    .control-group {
+      display: grid;
+      gap: 8px;
+    }
+
+    .control-label {
+      color: var(--ink-dim);
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .segmented button,
+    .select-like {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--ink-soft);
+      min-height: var(--target);
+      padding: 0 10px;
+    }
+
+    .segmented .active {
+      border-color: var(--yellow);
+      color: var(--void);
+      background: var(--yellow);
+      font-weight: 800;
+    }
+
+    .swatches {
+      display: flex;
+      gap: 9px;
+      align-items: center;
+    }
+
+    .swatch {
+      width: var(--target);
+      height: var(--target);
+      border-radius: 50%;
+      border: 1px solid rgba(244, 240, 231, 0.25);
+      background: var(--orange);
+      padding: 0;
+    }
+
+    .swatch.active {
+      outline: 2px solid var(--ink);
+      outline-offset: 3px;
+    }
+
+    .range-row {
+      display: grid;
+      grid-template-columns: 1fr 46px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      min-height: var(--target);
+      accent-color: var(--orange);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      .caption-word.intent {
+        transform: none;
+      }
+    }
+
+    @media (max-width: 1040px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        height: auto;
+        min-height: 100vh;
+      }
+
+      .topbar {
+        grid-template-columns: 1fr;
+        height: auto;
+        padding: 12px;
+      }
+
+      .top-actions {
+        justify-self: start;
+      }
+
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .stage {
+        min-height: 760px;
+        grid-template-rows: minmax(520px, auto) 260px;
+      }
+
+      .side-panel {
+        min-height: 620px;
+        border-top: 1px solid var(--line);
+      }
+
+      .preview-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .preview-zone {
+        padding: 16px;
+      }
+
+      .phone-frame {
+        width: min(74vw, 320px);
+      }
+
+      .timeline-grid {
+        min-width: 850px;
+      }
+
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div class="brand-title">CWI Studio</div>
+        <div class="project-meta">
+          <span class="project-name">Creator_Short_09.mp4</span>
+          <span class="small-pill">Local Media</span>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <button type="button" class="text-button">Share</button>
+        <button type="button" class="primary-button">Export</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="stage" aria-label="CWI editing workspace">
+        <div class="preview-zone">
+          <div class="preview-shell">
+            <div class="phone-frame">
+              <video class="media" muted playsinline preload="metadata" aria-label="Local preview video for the CWI caption overlay">
+                <source src="AE PROJECT/(Footage)/ASETS/Video/Cena_ref_CI_Template_v02a.mp4" type="video/mp4">
+                Local preview video is unavailable.
+              </video>
+              <div class="media-vignette"></div>
+              <div class="caption-safe">
+                <div class="caption-line">
+                  <span class="caption-word spoken">Google</span>
+                  <span class="caption-word spoken">just</span>
+                  <span class="caption-word intent">launched</span><br>
+                  <span class="caption-word">a</span>
+                  <span class="caption-word">free</span>
+                  <span class="caption-word">tool</span>
+                </div>
+              </div>
+              <div class="preview-control">
+                <button type="button" class="preview-button" aria-label="Step backward">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 18-7-6 7-6v12Z"></path><path d="m20 18-7-6 7-6v12Z"></path></svg>
+                </button>
+                <button type="button" class="preview-button play-icon" aria-label="Play preview">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7-11-7Z" fill="currentColor" stroke="none"></path></svg>
+                </button>
+                <button type="button" class="preview-button" aria-label="Step forward">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 18 7-6-7-6v12Z"></path><path d="m4 18 7-6-7-6v12Z"></path></svg>
+                </button>
+                <span class="time-readout">00:04.23 / 00:59.00</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="timeline">
+          <div class="timeline-grid">
+            <div class="playhead" aria-hidden="true"></div>
+            <div class="ruler">
+              <span style="left: 110px">00:00</span>
+              <span style="left: 260px">00:02</span>
+              <span style="left: 410px">00:04</span>
+              <span style="left: 560px">00:06</span>
+            </div>
+
+            <div class="row">
+              <div class="row-label">Audio</div>
+              <div class="row-content">
+                <div class="wave">
+                  <i style="height: 18px"></i><i style="height: 28px"></i><i style="height: 12px"></i><i style="height: 35px"></i><i style="height: 23px"></i><i style="height: 39px"></i><i style="height: 16px"></i><i style="height: 30px"></i><i style="height: 20px"></i><i style="height: 34px"></i><i style="height: 14px"></i><i style="height: 29px"></i><i style="height: 38px"></i><i style="height: 18px"></i><i style="height: 27px"></i><i style="height: 22px"></i><i style="height: 36px"></i><i style="height: 11px"></i><i style="height: 32px"></i><i style="height: 19px"></i><i style="height: 28px"></i><i style="height: 40px"></i><i style="height: 17px"></i><i style="height: 30px"></i>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="row-label">Words</div>
+              <div class="row-content">
+                <div class="segment" style="left: 48px; width: 124px">Google just</div>
+                <div class="segment active" style="left: 178px; width: 118px">launched</div>
+                <div class="segment" style="left: 302px; width: 156px">a free tool</div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="row-label">CWI</div>
+              <div class="row-content">
+                <div class="segment" style="left: 48px; width: 124px">read-ahead</div>
+                <div class="segment active" style="left: 178px; width: 118px">pop · yellow</div>
+                <div class="segment" style="left: 302px; width: 156px">normal</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side-panel" aria-label="Transcript and inspector">
+        <div class="tabs" role="tablist" aria-label="Side panel">
+          <button type="button" role="tab" aria-selected="true" class="tab active">Transcript</button>
+          <button type="button" role="tab" aria-selected="false" class="tab">Speakers</button>
+          <button type="button" role="tab" aria-selected="false" class="tab">QA</button>
+        </div>
+
+        <div class="transcript">
+          <div class="cue">
+            <div>
+              <div class="cue-time">00:01.20</div>
+              <div class="speaker"><i></i>Host</div>
+            </div>
+            <div class="cue-copy">
+              <span class="word">Google</span>
+              <span class="word">just</span>
+              <span class="word">launched</span>
+            </div>
+          </div>
+
+          <div class="cue active">
+            <div>
+              <div class="cue-time">00:03.45</div>
+              <div class="speaker"><i style="background: var(--yellow)"></i>Host</div>
+            </div>
+            <div class="cue-copy">
+              <span class="word">a</span>
+              <span class="word">free</span>
+              <span class="word selected">tool</span>
+            </div>
+          </div>
+
+          <div class="cue">
+            <div>
+              <div class="cue-time">00:05.10</div>
+              <div class="speaker"><i style="background: var(--blue)"></i>Guest</div>
+            </div>
+            <div class="cue-copy">
+              <span class="word">that</span>
+              <span class="word">builds</span>
+              <span class="word warn">apps</span>
+              <span class="word">from</span>
+              <span class="word">simple</span>
+              <span class="word">prompts</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="inspector">
+          <div class="inspector-head">
+            <div class="inspector-title">Intention <span>"tool"</span></div>
+            <span class="small-pill">word</span>
+          </div>
+          <div class="inspector-body">
+            <div class="control-group">
+              <div class="control-label">Vocal emphasis</div>
+              <div class="segmented">
+                <button type="button" class="active" aria-pressed="true">Loud</button>
+                <button type="button" aria-pressed="false">Normal</button>
+                <button type="button" aria-pressed="false">Whisper</button>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <div class="control-label">Speaker color</div>
+              <div class="swatches">
+                <button type="button" class="swatch active" style="background: var(--yellow)" aria-label="Use yellow speaker color"></button>
+                <button type="button" class="swatch" style="background: var(--cyan)" aria-label="Use cyan speaker color"></button>
+                <button type="button" class="swatch" style="background: var(--red)" aria-label="Use red speaker color"></button>
+                <button type="button" class="swatch" style="background: var(--green)" aria-label="Use green speaker color"></button>
+                <button type="button" class="swatch" style="background: var(--blue)" aria-label="Use blue speaker color"></button>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <div class="control-label">Motion pattern</div>
+              <button type="button" class="select-like">Scale pop · 15%</button>
+            </div>
+
+            <div class="control-group">
+              <div class="control-label">Volume size</div>
+              <div class="range-row">
+                <input type="range" value="68" aria-label="Volume size">
+                <span>8.2%</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+</body>
+</html>
