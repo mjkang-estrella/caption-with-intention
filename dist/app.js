@@ -27,12 +27,33 @@ const SPEAKER_PALETTE = [
     { role: "minor", label: "Minor Pastel Blue", color: "#8FA8E6" },
     { role: "minor", label: "Minor Pastel Pink", color: "#E68FC1" }
 ];
-const LABEL_WIDTH = 90;
 const PX_PER_SECOND = 110;
 const INSPECTOR_COLUMN_MIN = 300;
 const INSPECTOR_COLUMN_DEFAULT = 360;
 const INSPECTOR_STACK_MIN = 220;
 const CENTER_STAGE_MIN = 360;
+const AE_CAPTION_FONT_RATIO = 27 / 1080;
+const AE_WORD_RISE_RATIO = 0.25;
+const AE_BOX_VERTICAL_PADDING_EM = 20 / 27;
+const AE_BOX_HORIZONTAL_PADDING_EM = 60 / 27;
+const AE_NON_DIALOGUE_COLOR = "#5E82ED";
+const AUDIO_WAVEFORM = [
+    0.003, 0.003, 0.005, 0.003, 0.003, 0.003, 0.003, 0.003, 0.005, 0.003, 0.011, 0.174, 0.17, 0.22, 0.092, 0.04, 0.171, 0.129, 0.036, 0.013, 0.228, 0.194, 0.116, 0.028,
+    0.169, 0.249, 0.173, 0.14, 0.178, 0.116, 0.14, 0.294, 0.364, 0.284, 0.253, 0.101, 0.268, 0.422, 0.46, 0.131, 0.217, 0.197, 0.144, 0.095, 0.039, 0.339, 0.271, 0.047,
+    0.016, 0.005, 0.004, 0.003, 0.005, 0.02, 0.003, 0.003, 0.003, 0.006, 0.004, 0.015, 0.007, 0.008, 0.009, 0.009, 0.009, 0.006, 0.005, 0.003, 0.003, 0.004, 0.03, 0.025,
+    0.03, 0.054, 0.051, 0.025, 0.087, 0.094, 0.037, 0.017, 0.029, 0.023, 0.028, 0.025, 0.019, 0.018, 0.022, 0.023, 0.033, 0.085, 0.102, 0.059, 0.099, 0.157, 0.073, 0.198,
+    0.113, 0.044, 0.012, 0.011, 0.009, 0.011, 0.036, 0.017, 0.013, 0.011, 0.023, 0.02, 0.06, 0.347, 0.181, 0.092, 0.047, 0.111, 0.087, 0.085, 0.055, 0.017, 0.102, 0.162,
+    0.05, 0.123, 0.226, 0.263, 0.177, 0.053, 0.17, 0.024, 0.026, 0.015, 0.007, 0.006, 0.004, 0.005, 0.069, 0.113, 0.022, 0.056, 0.205, 0.186, 0.103, 0.143, 0.156, 0.034,
+    0.038, 0.027, 0.197, 0.087, 0.013, 0.009, 0.007, 0.007, 0.009, 0.007, 0.008, 0.011, 0.024, 0.224, 0.299, 0.145, 0.038, 0.226, 0.105, 0.089, 0.19, 0.186, 0.267, 0.241,
+    0.245, 0.152, 0.059, 0.179, 0.136, 0.116, 0.18, 0.084, 0.017, 0.006, 0.004, 0.004, 0.005, 0.005, 0.004, 0.004, 0.004, 0.027, 0.013, 0.022, 0.024, 0.035, 0.057, 0.139,
+    0.044, 0.149, 0.105, 0.119, 0.126, 0.188, 0.249, 0.176, 0.107, 0.131, 0.148, 0.198, 0.084, 0.096, 0.057, 0.046, 0.06, 0.08, 0.126, 0.026, 0.004, 0.003, 0.003, 0.005,
+    0.007, 0.005, 0.005, 0.006, 0.013, 0.027, 0.026, 0.107, 0.127, 0.235, 0.199, 0.097, 0.043, 0.027, 0.039, 0.014, 0.006, 0.01, 0.008, 0.006, 0.006, 0.004, 0.014, 0.009,
+    0.005, 0.004, 0.089, 0.069, 0.061, 0.039, 0.039, 0.108, 0.034, 0.027, 0.025, 0.217, 0.311, 0.151, 0.065, 0.02, 0.012, 0.009, 0.029, 0.01, 0.01, 0.009, 0.011, 0.01,
+    0.01, 0.012, 0.012, 0.013, 0.114, 0.061, 0.113, 0.046, 0.016, 0.007, 0.006, 0.009, 0.007, 0.006, 0.055, 0.01, 0.01, 0.009, 0.006, 0.005, 0.005, 0.005, 0.005, 0.004,
+    0.003, 0.003, 0.004, 0.004, 0.004, 0.004, 0.003, 0.004, 0.004, 0.004, 0.004, 0.003, 0.013, 0.012, 0.006, 0.006, 0.025, 0.216, 0.184, 0.065, 0.313, 0.108, 0.096, 0.056,
+    0.06, 0.028, 0.038, 0.052, 0.061, 0.053, 0.088, 0.301, 0.152, 0.033, 0.054, 0.392, 0.364, 0.247, 0.127, 0.044, 0.021, 0.01, 0.008, 0.008, 0.009, 0.008, 0.01, 0.009,
+    0.01, 0.009, 0.027, 0.02, 0.024, 0.022, 0.021, 0.021, 0.017, 0.012, 0.01, 0.012, 0.011, 0.011, 0.011, 0.011, 0.011, 0.011, 0.011, 0.01, 0.01, 0.017, 0.029, 0.295
+];
 function createSampleProject() {
     return {
         project: {
@@ -44,7 +65,7 @@ function createSampleProject() {
         },
         speakers: [
             { id: "speaker-marty", name: "Marty", role: "main", color: "#E5E517", defaultOffCamera: false },
-            { id: "speaker-biff", name: "Biff", role: "main", color: "#E51717", defaultOffCamera: true },
+            { id: "speaker-biff", name: "Biff", role: "main", color: "#E51717", defaultOffCamera: false },
             { id: "speaker-lou", name: "Lou", role: "supporting", color: "#5E82ED", defaultOffCamera: false }
         ],
         cues: [
@@ -55,7 +76,7 @@ function createSampleProject() {
                 start: 0.72,
                 end: 3.08,
                 text: "You know where 1640 Riverside Drive is?",
-                lineBreakAfterWordIds: ["word-riverside"],
+                lineBreakAfterWordIds: [],
                 exception: false,
                 offCamera: false,
                 words: [
@@ -112,21 +133,21 @@ function createSampleProject() {
                 start: 9.2,
                 end: 13.84,
                 text: "Tab? I can't give you a tab unless you order something.",
-                lineBreakAfterWordIds: ["word-give-cant"],
+                lineBreakAfterWordIds: [],
                 exception: false,
                 offCamera: false,
                 words: [
-                    { id: "word-tab-question", text: "Tab?", start: 9.24, end: 9.62, volumePercent: 68, pitchWeight: 720, pitchWidth: 106, motion: "pop" },
-                    { id: "word-i-cant", text: "I", start: 9.78, end: 9.9, volumePercent: 56, pitchWeight: 600, pitchWidth: 100, motion: "pop" },
-                    { id: "word-cant", text: "can't", start: 9.92, end: 10.2, volumePercent: 62, pitchWeight: 660, pitchWidth: 104, motion: "pop" },
-                    { id: "word-give-cant", text: "give", start: 10.22, end: 10.42, volumePercent: 58, pitchWeight: 620, pitchWidth: 100, motion: "pop" },
-                    { id: "word-you-cant", text: "you", start: 10.44, end: 10.62, volumePercent: 58, pitchWeight: 620, pitchWidth: 100, motion: "pop" },
-                    { id: "word-a-cant", text: "a", start: 10.64, end: 10.74, volumePercent: 54, pitchWeight: 560, pitchWidth: 98, motion: "pop" },
-                    { id: "word-tab-cant", text: "tab", start: 10.76, end: 11.0, volumePercent: 62, pitchWeight: 660, pitchWidth: 104, motion: "pop" },
-                    { id: "word-unless", text: "unless", start: 11.18, end: 11.52, volumePercent: 58, pitchWeight: 620, pitchWidth: 100, motion: "pop" },
-                    { id: "word-you-order-2", text: "you", start: 11.54, end: 11.7, volumePercent: 56, pitchWeight: 600, pitchWidth: 100, motion: "pop" },
-                    { id: "word-order-2", text: "order", start: 11.72, end: 12.08, volumePercent: 60, pitchWeight: 640, pitchWidth: 102, motion: "pop" },
-                    { id: "word-something-cant", text: "something.", start: 12.1, end: 12.76, volumePercent: 62, pitchWeight: 660, pitchWidth: 104, motion: "pop" }
+                    { id: "word-tab-question", text: "Tab?", start: 9.2, end: 9.32, volumePercent: 68, pitchWeight: 720, pitchWidth: 106, motion: "pop" },
+                    { id: "word-i-cant", text: "I", start: 10.34, end: 10.43, volumePercent: 56, pitchWeight: 600, pitchWidth: 100, motion: "pop" },
+                    { id: "word-cant", text: "can't", start: 10.43, end: 10.62, volumePercent: 62, pitchWeight: 660, pitchWidth: 104, motion: "pop" },
+                    { id: "word-give-cant", text: "give", start: 10.62, end: 10.76, volumePercent: 58, pitchWeight: 620, pitchWidth: 100, motion: "pop" },
+                    { id: "word-you-cant", text: "you", start: 10.82, end: 10.97, volumePercent: 58, pitchWeight: 620, pitchWidth: 100, motion: "pop" },
+                    { id: "word-a-cant", text: "a", start: 11.03, end: 11.08, volumePercent: 54, pitchWeight: 560, pitchWidth: 98, motion: "pop" },
+                    { id: "word-tab-cant", text: "tab", start: 11.13, end: 11.22, volumePercent: 62, pitchWeight: 660, pitchWidth: 104, motion: "pop" },
+                    { id: "word-unless", text: "unless", start: 11.3, end: 11.73, volumePercent: 58, pitchWeight: 620, pitchWidth: 100, motion: "pop" },
+                    { id: "word-you-order-2", text: "you", start: 11.76, end: 11.9, volumePercent: 56, pitchWeight: 600, pitchWidth: 100, motion: "pop" },
+                    { id: "word-order-2", text: "order", start: 11.92, end: 12.32, volumePercent: 60, pitchWeight: 640, pitchWidth: 102, motion: "pop" },
+                    { id: "word-something-cant", text: "something.", start: 12.38, end: 13.5, volumePercent: 62, pitchWeight: 660, pitchWidth: 104, motion: "pop" }
                 ]
             },
             {
@@ -155,7 +176,7 @@ function createSampleProject() {
                 start: 14.82,
                 end: 17.22,
                 text: "You want a Pepsi, pal? You're gonna pay for it.",
-                lineBreakAfterWordIds: ["word-pal"],
+                lineBreakAfterWordIds: [],
                 exception: false,
                 offCamera: false,
                 words: [
@@ -176,22 +197,23 @@ function createSampleProject() {
                 type: "dialogue",
                 speakerId: "speaker-marty",
                 start: 17.22,
-                end: 23.88,
-                text: "Just give me something without any sugar in it, okay?",
-                lineBreakAfterWordIds: ["word-something-2"],
+                end: 20.3,
+                text: "Look, just give me something without any sugar in it, okay?",
+                lineBreakAfterWordIds: [],
                 exception: false,
                 offCamera: false,
                 words: [
-                    { id: "word-just", text: "Just", start: 17.28, end: 17.5, volumePercent: 50, pitchWeight: 500, pitchWidth: 94, motion: "pop" },
-                    { id: "word-give", text: "give", start: 17.52, end: 17.74, volumePercent: 52, pitchWeight: 510, pitchWidth: 96, motion: "pop" },
-                    { id: "word-me", text: "me", start: 17.76, end: 17.92, volumePercent: 50, pitchWeight: 500, pitchWidth: 94, motion: "pop" },
-                    { id: "word-something-2", text: "something", start: 17.96, end: 18.5, volumePercent: 54, pitchWeight: 520, pitchWidth: 96, motion: "pop" },
-                    { id: "word-without-2", text: "without", start: 18.84, end: 19.2, volumePercent: 46, pitchWeight: 470, pitchWidth: 92, motion: "pop" },
-                    { id: "word-any", text: "any", start: 19.22, end: 19.44, volumePercent: 48, pitchWeight: 480, pitchWidth: 92, motion: "pop" },
-                    { id: "word-sugar-2", text: "sugar", start: 19.46, end: 19.86, volumePercent: 46, pitchWeight: 460, pitchWidth: 90, motion: "pop" },
-                    { id: "word-in", text: "in", start: 19.88, end: 20.02, volumePercent: 46, pitchWeight: 450, pitchWidth: 90, motion: "pop" },
-                    { id: "word-it", text: "it,", start: 20.04, end: 20.24, volumePercent: 48, pitchWeight: 460, pitchWidth: 90, motion: "pop" },
-                    { id: "word-okay", text: "okay?", start: 20.26, end: 20.98, volumePercent: 62, pitchWeight: 620, pitchWidth: 102, motion: "pop" }
+                    { id: "word-look", text: "Look,", start: 17.22, end: 17.34, volumePercent: 50, pitchWeight: 500, pitchWidth: 94, motion: "pop" },
+                    { id: "word-just", text: "just", start: 17.34, end: 17.5, volumePercent: 50, pitchWeight: 500, pitchWidth: 94, motion: "pop" },
+                    { id: "word-give", text: "give", start: 17.52, end: 17.68, volumePercent: 52, pitchWeight: 510, pitchWidth: 96, motion: "pop" },
+                    { id: "word-me", text: "me", start: 17.7, end: 17.84, volumePercent: 50, pitchWeight: 500, pitchWidth: 94, motion: "pop" },
+                    { id: "word-something-2", text: "something", start: 17.86, end: 18.38, volumePercent: 54, pitchWeight: 520, pitchWidth: 96, motion: "pop" },
+                    { id: "word-without-2", text: "without", start: 18.72, end: 18.98, volumePercent: 46, pitchWeight: 470, pitchWidth: 92, motion: "pop" },
+                    { id: "word-any", text: "any", start: 19.0, end: 19.16, volumePercent: 48, pitchWeight: 480, pitchWidth: 92, motion: "pop" },
+                    { id: "word-sugar-2", text: "sugar", start: 19.18, end: 19.5, volumePercent: 46, pitchWeight: 460, pitchWidth: 90, motion: "pop" },
+                    { id: "word-in", text: "in", start: 19.52, end: 19.64, volumePercent: 46, pitchWeight: 450, pitchWidth: 90, motion: "pop" },
+                    { id: "word-it", text: "it,", start: 19.66, end: 19.82, volumePercent: 48, pitchWeight: 460, pitchWidth: 90, motion: "pop" },
+                    { id: "word-okay", text: "okay?", start: 19.84, end: 20.22, volumePercent: 62, pitchWeight: 620, pitchWidth: 102, motion: "pop" }
                 ]
             },
             {
@@ -219,7 +241,7 @@ function createSampleProject() {
                 text: "Hey, McFly.",
                 lineBreakAfterWordIds: [],
                 exception: false,
-                offCamera: true,
+                offCamera: false,
                 words: [
                     { id: "word-hey", text: "Hey,", start: 30.0, end: 30.24, volumePercent: 70, pitchWeight: 760, pitchWidth: 108, motion: "pop" },
                     { id: "word-mcfly", text: "McFly.", start: 30.26, end: 30.82, volumePercent: 78, pitchWeight: 860, pitchWidth: 114, motion: "pop" }
@@ -240,22 +262,36 @@ function createSampleProject() {
                 ]
             },
             {
-                id: "cue-jukebox",
-                type: "music",
+                id: "cue-pepsi-can-cracks",
+                type: "sound",
                 speakerId: "",
-                start: 32.5,
-                end: 34.3,
-                text: "low diner jukebox fades",
+                start: 32.12,
+                end: 33.18,
+                text: "pepsi can cracks open",
                 lineBreakAfterWordIds: [],
-                exception: true,
+                exception: false,
                 offCamera: false,
                 words: [
-                    { id: "word-jukebox", text: "low diner jukebox fades", start: 32.56, end: 34.16, volumePercent: 38, pitchWeight: 400, pitchWidth: 88, motion: "none" }
+                    { id: "word-pepsi-can-cracks", text: "pepsi can cracks open", start: 32.18, end: 33.0, volumePercent: 55, pitchWeight: 400, pitchWidth: 100, motion: "none" }
+                ]
+            },
+            {
+                id: "cue-door-crack",
+                type: "sound",
+                speakerId: "",
+                start: 33.18,
+                end: 34.3,
+                text: "door crack",
+                lineBreakAfterWordIds: [],
+                exception: false,
+                offCamera: false,
+                words: [
+                    { id: "word-door-crack", text: "door crack", start: 33.24, end: 33.94, volumePercent: 55, pitchWeight: 400, pitchWidth: 100, motion: "none" }
                 ]
             }
         ],
         review: {
-            notes: ["Mock transcript uses text extracted from the After Effects template and follows read-ahead, word-color sync, off-camera, sound-effect, and music-cue guidance.", "Standard closed captions remain a required companion deliverable."],
+            notes: ["Mock transcript preserves the full sample dialogue while using AE-style rendered caption behavior.", "Standard closed captions remain a required companion deliverable."],
             validationStatus: "unchecked"
         }
     };
@@ -273,7 +309,8 @@ function createSampleProject() {
         playbackKey: "",
         inspectorSize: INSPECTOR_COLUMN_DEFAULT,
         speakerSelectorOpen: false,
-        activeSpeakerOptionId: ""
+        activeSpeakerOptionId: "",
+        previewTimeOverride: null
     };
     const els = {};
     document.addEventListener("DOMContentLoaded", init);
@@ -353,9 +390,21 @@ function createSampleProject() {
             }
             renderAll();
         });
-        els.video.addEventListener("timeupdate", renderPlayback);
-        els.video.addEventListener("seeking", renderPlayback);
+        els.video.addEventListener("timeupdate", () => {
+            if (!els.video.paused)
+                state.previewTimeOverride = null;
+            renderPlayback();
+        });
+        els.video.addEventListener("seeking", () => {
+            if (!els.video.paused)
+                state.previewTimeOverride = null;
+            renderPlayback();
+        });
         els.video.addEventListener("play", () => {
+            if (state.previewTimeOverride !== null) {
+                seekVideoElement(state.previewTimeOverride);
+                state.previewTimeOverride = null;
+            }
             setPlayButton();
             requestAnimationFrame(playbackLoop);
         });
@@ -444,8 +493,12 @@ function createSampleProject() {
     function setupTimelineEvents() {
         els.timelineGrid.addEventListener("click", (event) => {
             const segment = event.target.closest("[data-cue-id]");
-            if (!segment)
+            if (!segment) {
+                const seekTarget = event.target.closest("[data-timeline-seek]");
+                if (seekTarget)
+                    seekTimelineFromPointer(event);
                 return;
+            }
             state.selectedCueId = segment.dataset.cueId;
             state.selectedWordId = segment.dataset.wordId || "";
             renderAll();
@@ -665,7 +718,7 @@ function createSampleProject() {
     }
     function stepPlayback(delta) {
         const duration = getDuration();
-        els.video.currentTime = clamp(els.video.currentTime + delta, 0, duration);
+        seekPreviewToTime(currentMediaTime() + delta);
         renderPlayback();
     }
     function playbackLoop() {
@@ -1279,7 +1332,6 @@ function createSampleProject() {
         const pitchWeight = word ? word.pitchWeight : 400;
         const pitchWidth = word ? word.pitchWidth : 100;
         const motion = word ? word.motion : "none";
-        const hasLineBreak = word && Array.isArray(cue.lineBreakAfterWordIds) && cue.lineBreakAfterWordIds.includes(word.id);
         return `
           <section class="editor-section" aria-label="Word Editor">
             <div class="editor-section-head">
@@ -1343,12 +1395,6 @@ function createSampleProject() {
               </div>
             </div>
 
-            <div class="control-group">
-              <div class="control-label">Layout</div>
-              <div class="checkbox-grid">
-                <label class="checkbox-row"><input type="checkbox" data-control="line-break"${hasLineBreak ? " checked" : ""}> Line break after selected word</label>
-              </div>
-            </div>
           </section>
         `;
     }
@@ -1363,46 +1409,56 @@ function createSampleProject() {
             ticks.push(Math.floor(duration));
         els.timelineGrid.style.minWidth = "0";
         els.timelineGrid.innerHTML = `
-          <div class="playhead" aria-hidden="true" style="left: ${LABEL_WIDTH + els.video.currentTime * PX_PER_SECOND}px"></div>
-          <div class="ruler">
-            ${ticks.map((tick) => `<span style="left: ${LABEL_WIDTH + tick * PX_PER_SECOND}px">${formatTime(tick)}</span>`).join("")}
-          </div>
-          <div class="row">
-            <div class="row-label">Audio</div>
-            <div class="row-content" style="min-width: ${contentWidth}px">
+          <div class="timeline-corner" aria-hidden="true"></div>
+          <div class="row-label" style="grid-row: 2">Audio</div>
+          <div class="row-label" style="grid-row: 3">Words</div>
+          <div class="row-label" style="grid-row: 4">CWI</div>
+          <div class="timeline-scroll">
+            <div class="playhead" aria-hidden="true" style="left: ${currentMediaTime() * PX_PER_SECOND}px"></div>
+            <div class="ruler" style="min-width: ${contentWidth}px">
+              ${ticks.map((tick) => `<span style="left: ${tick * PX_PER_SECOND}px">${formatTime(tick)}</span>`).join("")}
+            </div>
+            <div class="row-content" data-timeline-seek style="min-width: ${contentWidth}px">
               <div class="wave">${renderWaveform()}</div>
             </div>
-          </div>
-          <div class="row">
-            <div class="row-label">Words</div>
-            <div class="row-content" style="min-width: ${contentWidth}px">
+            <div class="row-content" data-timeline-seek style="min-width: ${contentWidth}px">
               ${renderWordSegments()}
             </div>
-          </div>
-          <div class="row">
-            <div class="row-label">CWI</div>
-            <div class="row-content" style="min-width: ${contentWidth}px">
+            <div class="row-content" data-timeline-seek style="min-width: ${contentWidth}px">
               ${renderCueSegments()}
             </div>
           </div>
         `;
     }
     function renderWaveform() {
-        const heights = [18, 28, 12, 35, 23, 39, 16, 30, 20, 34, 14, 29, 38, 18, 27, 22, 36, 11, 32, 19, 28, 40, 17, 30, 22, 37, 13, 26, 34, 18, 31, 21, 39, 16, 28, 35];
-        return heights.map((height) => `<i style="height: ${height}px"></i>`).join("");
+        return AUDIO_WAVEFORM.map((value) => {
+            const height = Math.max(3, Math.round(6 + value * 38));
+            return `<i style="height: ${height}px"></i>`;
+        }).join("");
     }
     function renderWordSegments() {
+        const current = getCurrentCueAndWord();
         return state.cwi.cues.flatMap((cue) => (cue.words || []).map((word) => {
-            const active = word.id === state.selectedWordId || isWordLive(word, els.video.currentTime);
+            const active = word.id === state.selectedWordId || word.id === current.wordId;
             return `<button type="button" class="segment${active ? " active" : ""}" style="left: ${word.start * PX_PER_SECOND}px; width: ${Math.max(34, (word.end - word.start) * PX_PER_SECOND)}px" data-cue-id="${escapeAttr(cue.id)}" data-word-id="${escapeAttr(word.id)}">${escapeHtml(word.text)}</button>`;
         })).join("");
     }
     function renderCueSegments() {
         return state.cwi.cues.map((cue) => {
-            const active = cue.id === state.selectedCueId || isCueLive(cue, els.video.currentTime);
+            const active = cue.id === state.selectedCueId || isCueLive(cue, currentMediaTime());
             const label = cue.type === "dialogue" ? `${motionSummary(cue)} · ${speakerName(cue.speakerId)}` : `${cue.type} cue`;
             return `<button type="button" class="segment${active ? " active" : ""}" style="left: ${cue.start * PX_PER_SECOND}px; width: ${Math.max(58, (cue.end - cue.start) * PX_PER_SECOND)}px" data-cue-id="${escapeAttr(cue.id)}">${escapeHtml(label)}</button>`;
         }).join("");
+    }
+    function seekTimelineFromPointer(event) {
+        const scroller = els.timelineGrid.querySelector(".timeline-scroll");
+        if (!scroller)
+            return;
+        const rect = scroller.getBoundingClientRect();
+        const x = event.clientX - rect.left + scroller.scrollLeft;
+        const time = clamp(x / PX_PER_SECOND, 0, getDuration());
+        seekPreviewToTime(time);
+        renderPlayback();
     }
     function renderPlayback() {
         renderCaptionOverlay();
@@ -1418,10 +1474,10 @@ function createSampleProject() {
         }
     }
     function renderCaptionOverlay() {
-        const cue = state.cwi.cues.find((item) => isCueLive(item, els.video.currentTime));
+        const mediaTime = currentMediaTime();
+        const cue = state.cwi.cues.find((item) => isCueLive(item, mediaTime));
         if (!cue) {
-            const upcoming = state.cwi.cues.find((item) => item.start > els.video.currentTime);
-            upcoming ? renderCuePreview(upcoming) : els.captionSafe.innerHTML = '<div class="caption-line caption-empty">.</div>';
+            els.captionSafe.innerHTML = '<div class="caption-line caption-empty">.</div>';
             return;
         }
         if (cue.type === "sound") {
@@ -1435,58 +1491,40 @@ function createSampleProject() {
         const speaker = getSpeaker(cue.speakerId);
         const color = speaker ? speaker.color : "var(--cyan)";
         const words = cue.words && cue.words.length ? cue.words : wordsFromCueText(cue);
+        const activeWord = currentWordForCue(cue, mediaTime);
         const html = words.map((word) => {
-            const time = els.video.currentTime;
-            const live = isWordLive(word, time);
-            const intentStyle = wordMotionStyle(word, time);
-            const spoken = time >= Number(word.start);
-            const sizePx = wordFontSizePx(word);
+            const transform = aeWordMotionTransform(word, mediaTime);
+            const spoken = mediaTime >= Number(word.start);
             const style = [
                 spoken ? `color: ${color}` : "",
-                `font-size: ${sizePx}px`,
-                `font-weight: ${clamp(Number(word.pitchWeight) || 400, 300, 1000)}`,
-                intentStyle.transform ? `transform: ${intentStyle.transform}` : "",
-                `font-variation-settings: "wght" ${clamp(Number(word.pitchWeight) || 400, 300, 1000)}, "wdth" ${clamp(Number(word.pitchWidth) || 100, 75, 125)}`
+                transform ? `transform: ${transform}` : ""
             ].filter(Boolean).join("; ");
             const classes = ["caption-word"];
             if (spoken)
                 classes.push("spoken");
-            if (intentStyle.transform && word.motion !== "none")
+            if (activeWord && word.id === activeWord.id && transform)
                 classes.push("intent");
             if (cue.offCamera)
                 classes.push("off-camera");
-            const breakMarkup = cue.lineBreakAfterWordIds && cue.lineBreakAfterWordIds.includes(word.id) ? "<br>" : "";
-            return `<span class="${classes.join(" ")}" style="${escapeAttr(style)}">${escapeHtml(word.text)}</span>${breakMarkup}`;
+            return `<span class="${classes.join(" ")}" style="${escapeAttr(style)}">${escapeHtml(word.text)}</span>`;
         }).join(" ");
-        els.captionSafe.innerHTML = `<div class="caption-line">${html}</div>`;
-    }
-    function renderCuePreview(cue) {
-        const words = cue.words && cue.words.length ? cue.words : wordsFromCueText(cue);
-        const label = cue.type === "dialogue"
-            ? words.map((word) => word.text).join(" ")
-            : formatCueText(cue);
-        els.captionSafe.innerHTML = `<div class="caption-line caption-preview">${escapeHtml(label)}</div>`;
+        els.captionSafe.innerHTML = `<div class="caption-line" style="${escapeAttr(captionLineStyle())}">${html}</div>`;
     }
     function renderNonDialogueCue(cue, text) {
-        const word = cue.words && cue.words[0] ? cue.words[0] : null;
-        const sizePx = wordFontSizePx(word);
-        const live = els.video.currentTime <= cue.start + 0.42;
-        const classes = ["caption-word"];
-        if (live && word && word.motion !== "none")
-            classes.push("intent");
+        const color = cue.type === "sound" ? AE_NON_DIALOGUE_COLOR : "var(--ink)";
         els.captionSafe.innerHTML = `
-          <div class="caption-line">
-            <span class="${classes.join(" ")}" style="color: var(--ink); font-size: ${sizePx}px">${escapeHtml(text)}</span>
+          <div class="caption-line" style="${escapeAttr(captionLineStyle())}">
+            <span class="caption-word" style="color: ${escapeAttr(color)}">${escapeHtml(text)}</span>
           </div>
         `;
     }
     function renderTimeReadout() {
-        els.timeReadout.textContent = `${formatTime(els.video.currentTime)} / ${formatTime(getDuration())}`;
+        els.timeReadout.textContent = `${formatTime(currentMediaTime())} / ${formatTime(getDuration())}`;
     }
     function updatePlayhead() {
         const playhead = els.timelineGrid.querySelector(".playhead");
         if (playhead)
-            playhead.style.left = `${LABEL_WIDTH + els.video.currentTime * PX_PER_SECOND}px`;
+            playhead.style.left = `${currentMediaTime() * PX_PER_SECOND}px`;
     }
     function setPlayButton() {
         const path = els.video.paused
@@ -1567,10 +1605,6 @@ function createSampleProject() {
                 break;
             case "exception":
                 cue.exception = Boolean(value);
-                break;
-            case "line-break":
-                if (word)
-                    toggleLineBreak(cue, word.id, Boolean(value));
                 break;
             default:
                 break;
@@ -1702,10 +1736,9 @@ function createSampleProject() {
         hasUploadPath ? fail("Media boundary", "A cloud upload path is active.") : pass("Media boundary", state.mediaObjectUrl ? "Selected media is a browser object URL and stays local." : "The bundled sample media is loaded locally; no upload path exists.");
         const hasDialogue = project.cues.some((cue) => cue.type === "dialogue");
         const hasSound = project.cues.some((cue) => cue.type === "sound");
-        const hasMusic = project.cues.some((cue) => cue.type === "music");
-        hasDialogue && hasSound && hasMusic
-            ? pass("Cue coverage", "Dialogue, sound effect, and music cue types are represented.")
-            : fail("Cue coverage", "The project should include dialogue, sound effect, and music cue examples.");
+        hasDialogue && hasSound
+            ? pass("Cue coverage", "Dialogue and AE-template sound effect cue types are represented.")
+            : fail("Cue coverage", "The project should include the dialogue and sound-effect cues used by the After Effects template.");
         return checks;
     }
     function findMissingImportedFields(raw) {
@@ -1787,59 +1820,44 @@ function createSampleProject() {
         return cue && cue.words && cue.words[0] ? cue.words[0].id : "";
     }
     function getCurrentCueAndWord() {
-        const cue = state.cwi.cues.find((item) => isCueLive(item, els.video.currentTime));
+        const mediaTime = currentMediaTime();
+        const cue = state.cwi.cues.find((item) => isCueLive(item, mediaTime));
         if (!cue)
             return { cueId: "", wordId: "" };
-        const word = cue.words && cue.words.find((item) => isWordLive(item, els.video.currentTime));
+        if (cue.type !== "dialogue") {
+            return { cueId: cue.id, wordId: cue.words && cue.words[0] ? cue.words[0].id : "" };
+        }
+        const word = currentWordForCue(cue, mediaTime);
         return { cueId: cue.id, wordId: word ? word.id : "" };
     }
     function isCueLive(cue, time) {
         return time >= Number(cue.start) && time <= Number(cue.end);
     }
+    function currentWordForCue(cue, time) {
+        const words = cue.words || [];
+        return words.find((word) => isWordLive(word, time)) || null;
+    }
     function isWordLive(word, time) {
         return time >= Number(word.start) && time <= Number(word.end);
     }
-    function wordMotionStyle(word, time) {
+    function aeWordMotionTransform(word, time) {
         if (!word || word.motion === "none")
-            return { transform: "" };
-        const anticipation = 1 / 30;
-        const popDuration = 0.14;
-        const settleDuration = 0.1;
+            return "";
         const start = Number(word.start);
         const end = Number(word.end);
-        if (time >= start - anticipation && time < start) {
-            const progress = clamp((time - (start - anticipation)) / anticipation, 0, 1);
-            const y = 2 * (1 - progress);
-            return {
-                transform: `translateY(${y.toFixed(2)}px)`
-            };
-        }
-        if (time < start || time > end)
-            return { transform: "" };
-        const up = easeOutCubic(clamp((time - start) / popDuration, 0, 1));
-        const downStart = Math.max(start + popDuration, end - settleDuration);
-        const down = time > downStart ? clamp((time - downStart) / settleDuration, 0, 1) : 0;
-        const intensity = up * (1 - down);
-        const y = -6 * intensity;
-        return {
-            transform: `translateY(${y.toFixed(2)}px)`
-        };
-    }
-    function easeOutCubic(value) {
-        const t = clamp(value, 0, 1);
-        return 1 - Math.pow(1 - t, 3);
+        if (end <= start || time < start || time > end)
+            return "";
+        const fontSize = captionFontSizePx();
+        const rise = fontSize * AE_WORD_RISE_RATIO;
+        const progress = clamp((time - start) / (end - start), 0, 1);
+        const y = -rise * Math.sin(Math.PI * progress);
+        return `translateY(${y.toFixed(2)}px)`;
     }
     function hasTimingWarning(cue, word) {
         return Number(word.start) < Number(cue.start) || Number(word.end) > Number(cue.end) || Number(word.end) <= Number(word.start);
     }
     function syncCueTextFromWords(cue) {
         cue.text = (cue.words || []).map((word) => word.text).join(" ");
-    }
-    function toggleLineBreak(cue, wordId, enabled) {
-        cue.lineBreakAfterWordIds = Array.isArray(cue.lineBreakAfterWordIds) ? cue.lineBreakAfterWordIds : [];
-        const next = new Set(cue.lineBreakAfterWordIds);
-        enabled ? next.add(wordId) : next.delete(wordId);
-        cue.lineBreakAfterWordIds = Array.from(next);
     }
     function selectAdjacentWord(direction) {
         const cue = getSelectedCue();
@@ -1855,11 +1873,17 @@ function createSampleProject() {
             : clamp(currentIndex + direction, 0, words.length - 1);
         state.selectedWordId = words[nextIndex].id;
     }
-    function wordFontSizePx(word) {
-        const safeWord = word || { volumePercent: 50 };
+    function captionFontSizePx() {
         const frameHeight = document.querySelector(".phone-frame").clientHeight || 560;
-        const rawSize = frameHeight * (volumeToPercent(safeWord.volumePercent) / 100);
-        return Math.round(clamp(rawSize, 16, 54));
+        const rawSize = frameHeight * AE_CAPTION_FONT_RATIO;
+        return Math.round(clamp(rawSize, 11, 27));
+    }
+    function captionLineStyle() {
+        return [
+            `font-size: ${captionFontSizePx()}px`,
+            `--caption-box-padding-y: ${AE_BOX_VERTICAL_PADDING_EM}em`,
+            `--caption-box-padding-x: ${AE_BOX_HORIZONTAL_PADDING_EM}em`
+        ].join("; ");
     }
     function volumeToPercent(volumePercent) {
         return 3 + (clamp(Number(volumePercent) || 0, 0, 100) / 100) * 9;
@@ -1868,6 +1892,28 @@ function createSampleProject() {
         if (Number.isFinite(els.video.duration) && els.video.duration > 0)
             return els.video.duration;
         return Number(state.cwi.project.duration) || 0;
+    }
+    function currentMediaTime() {
+        if (state.previewTimeOverride !== null && els.video.paused)
+            return state.previewTimeOverride;
+        return els.video.currentTime || 0;
+    }
+    function seekPreviewToTime(time) {
+        const nextTime = clamp(time, 0, getDuration());
+        state.previewTimeOverride = nextTime;
+        seekVideoElement(nextTime);
+    }
+    function seekVideoElement(time) {
+        if (typeof els.video.fastSeek === "function") {
+            try {
+                els.video.fastSeek(time);
+                return;
+            }
+            catch {
+                // Fall back to currentTime assignment below.
+            }
+        }
+        els.video.currentTime = time;
     }
     function formatCueText(cue) {
         if (!cue)

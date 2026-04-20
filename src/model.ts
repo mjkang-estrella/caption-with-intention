@@ -27,12 +27,33 @@ const SPEAKER_PALETTE = [
   { role: "minor", label: "Minor Pastel Blue", color: "#8FA8E6" },
   { role: "minor", label: "Minor Pastel Pink", color: "#E68FC1" }
 ];
-const LABEL_WIDTH = 90;
 const PX_PER_SECOND = 110;
 const INSPECTOR_COLUMN_MIN = 300;
 const INSPECTOR_COLUMN_DEFAULT = 360;
 const INSPECTOR_STACK_MIN = 220;
 const CENTER_STAGE_MIN = 360;
+const AE_CAPTION_FONT_RATIO = 27 / 1080;
+const AE_WORD_RISE_RATIO = 0.25;
+const AE_BOX_VERTICAL_PADDING_EM = 20 / 27;
+const AE_BOX_HORIZONTAL_PADDING_EM = 60 / 27;
+const AE_NON_DIALOGUE_COLOR = "#5E82ED";
+const AUDIO_WAVEFORM = [
+  0.003, 0.003, 0.005, 0.003, 0.003, 0.003, 0.003, 0.003, 0.005, 0.003, 0.011, 0.174, 0.17, 0.22, 0.092, 0.04, 0.171, 0.129, 0.036, 0.013, 0.228, 0.194, 0.116, 0.028,
+  0.169, 0.249, 0.173, 0.14, 0.178, 0.116, 0.14, 0.294, 0.364, 0.284, 0.253, 0.101, 0.268, 0.422, 0.46, 0.131, 0.217, 0.197, 0.144, 0.095, 0.039, 0.339, 0.271, 0.047,
+  0.016, 0.005, 0.004, 0.003, 0.005, 0.02, 0.003, 0.003, 0.003, 0.006, 0.004, 0.015, 0.007, 0.008, 0.009, 0.009, 0.009, 0.006, 0.005, 0.003, 0.003, 0.004, 0.03, 0.025,
+  0.03, 0.054, 0.051, 0.025, 0.087, 0.094, 0.037, 0.017, 0.029, 0.023, 0.028, 0.025, 0.019, 0.018, 0.022, 0.023, 0.033, 0.085, 0.102, 0.059, 0.099, 0.157, 0.073, 0.198,
+  0.113, 0.044, 0.012, 0.011, 0.009, 0.011, 0.036, 0.017, 0.013, 0.011, 0.023, 0.02, 0.06, 0.347, 0.181, 0.092, 0.047, 0.111, 0.087, 0.085, 0.055, 0.017, 0.102, 0.162,
+  0.05, 0.123, 0.226, 0.263, 0.177, 0.053, 0.17, 0.024, 0.026, 0.015, 0.007, 0.006, 0.004, 0.005, 0.069, 0.113, 0.022, 0.056, 0.205, 0.186, 0.103, 0.143, 0.156, 0.034,
+  0.038, 0.027, 0.197, 0.087, 0.013, 0.009, 0.007, 0.007, 0.009, 0.007, 0.008, 0.011, 0.024, 0.224, 0.299, 0.145, 0.038, 0.226, 0.105, 0.089, 0.19, 0.186, 0.267, 0.241,
+  0.245, 0.152, 0.059, 0.179, 0.136, 0.116, 0.18, 0.084, 0.017, 0.006, 0.004, 0.004, 0.005, 0.005, 0.004, 0.004, 0.004, 0.027, 0.013, 0.022, 0.024, 0.035, 0.057, 0.139,
+  0.044, 0.149, 0.105, 0.119, 0.126, 0.188, 0.249, 0.176, 0.107, 0.131, 0.148, 0.198, 0.084, 0.096, 0.057, 0.046, 0.06, 0.08, 0.126, 0.026, 0.004, 0.003, 0.003, 0.005,
+  0.007, 0.005, 0.005, 0.006, 0.013, 0.027, 0.026, 0.107, 0.127, 0.235, 0.199, 0.097, 0.043, 0.027, 0.039, 0.014, 0.006, 0.01, 0.008, 0.006, 0.006, 0.004, 0.014, 0.009,
+  0.005, 0.004, 0.089, 0.069, 0.061, 0.039, 0.039, 0.108, 0.034, 0.027, 0.025, 0.217, 0.311, 0.151, 0.065, 0.02, 0.012, 0.009, 0.029, 0.01, 0.01, 0.009, 0.011, 0.01,
+  0.01, 0.012, 0.012, 0.013, 0.114, 0.061, 0.113, 0.046, 0.016, 0.007, 0.006, 0.009, 0.007, 0.006, 0.055, 0.01, 0.01, 0.009, 0.006, 0.005, 0.005, 0.005, 0.005, 0.004,
+  0.003, 0.003, 0.004, 0.004, 0.004, 0.004, 0.003, 0.004, 0.004, 0.004, 0.004, 0.003, 0.013, 0.012, 0.006, 0.006, 0.025, 0.216, 0.184, 0.065, 0.313, 0.108, 0.096, 0.056,
+  0.06, 0.028, 0.038, 0.052, 0.061, 0.053, 0.088, 0.301, 0.152, 0.033, 0.054, 0.392, 0.364, 0.247, 0.127, 0.044, 0.021, 0.01, 0.008, 0.008, 0.009, 0.008, 0.01, 0.009,
+  0.01, 0.009, 0.027, 0.02, 0.024, 0.022, 0.021, 0.021, 0.017, 0.012, 0.01, 0.012, 0.011, 0.011, 0.011, 0.011, 0.011, 0.011, 0.011, 0.01, 0.01, 0.017, 0.029, 0.295
+];
 
  function createSampleProject() {
   return {
@@ -45,7 +66,7 @@ const CENTER_STAGE_MIN = 360;
     },
     speakers: [
       { id: "speaker-marty", name: "Marty", role: "main", color: "#E5E517", defaultOffCamera: false },
-      { id: "speaker-biff", name: "Biff", role: "main", color: "#E51717", defaultOffCamera: true },
+      { id: "speaker-biff", name: "Biff", role: "main", color: "#E51717", defaultOffCamera: false },
       { id: "speaker-lou", name: "Lou", role: "supporting", color: "#5E82ED", defaultOffCamera: false }
     ],
     cues: [
@@ -56,7 +77,7 @@ const CENTER_STAGE_MIN = 360;
         start: 0.72,
         end: 3.08,
         text: "You know where 1640 Riverside Drive is?",
-        lineBreakAfterWordIds: ["word-riverside"],
+        lineBreakAfterWordIds: [],
         exception: false,
         offCamera: false,
         words: [
@@ -113,21 +134,21 @@ const CENTER_STAGE_MIN = 360;
         start: 9.2,
         end: 13.84,
         text: "Tab? I can't give you a tab unless you order something.",
-        lineBreakAfterWordIds: ["word-give-cant"],
+        lineBreakAfterWordIds: [],
         exception: false,
         offCamera: false,
         words: [
-          { id: "word-tab-question", text: "Tab?", start: 9.24, end: 9.62, volumePercent: 68, pitchWeight: 720, pitchWidth: 106, motion: "pop" },
-          { id: "word-i-cant", text: "I", start: 9.78, end: 9.9, volumePercent: 56, pitchWeight: 600, pitchWidth: 100, motion: "pop" },
-          { id: "word-cant", text: "can't", start: 9.92, end: 10.2, volumePercent: 62, pitchWeight: 660, pitchWidth: 104, motion: "pop" },
-          { id: "word-give-cant", text: "give", start: 10.22, end: 10.42, volumePercent: 58, pitchWeight: 620, pitchWidth: 100, motion: "pop" },
-          { id: "word-you-cant", text: "you", start: 10.44, end: 10.62, volumePercent: 58, pitchWeight: 620, pitchWidth: 100, motion: "pop" },
-          { id: "word-a-cant", text: "a", start: 10.64, end: 10.74, volumePercent: 54, pitchWeight: 560, pitchWidth: 98, motion: "pop" },
-          { id: "word-tab-cant", text: "tab", start: 10.76, end: 11.0, volumePercent: 62, pitchWeight: 660, pitchWidth: 104, motion: "pop" },
-          { id: "word-unless", text: "unless", start: 11.18, end: 11.52, volumePercent: 58, pitchWeight: 620, pitchWidth: 100, motion: "pop" },
-          { id: "word-you-order-2", text: "you", start: 11.54, end: 11.7, volumePercent: 56, pitchWeight: 600, pitchWidth: 100, motion: "pop" },
-          { id: "word-order-2", text: "order", start: 11.72, end: 12.08, volumePercent: 60, pitchWeight: 640, pitchWidth: 102, motion: "pop" },
-          { id: "word-something-cant", text: "something.", start: 12.1, end: 12.76, volumePercent: 62, pitchWeight: 660, pitchWidth: 104, motion: "pop" }
+          { id: "word-tab-question", text: "Tab?", start: 9.2, end: 9.32, volumePercent: 68, pitchWeight: 720, pitchWidth: 106, motion: "pop" },
+          { id: "word-i-cant", text: "I", start: 10.34, end: 10.43, volumePercent: 56, pitchWeight: 600, pitchWidth: 100, motion: "pop" },
+          { id: "word-cant", text: "can't", start: 10.43, end: 10.62, volumePercent: 62, pitchWeight: 660, pitchWidth: 104, motion: "pop" },
+          { id: "word-give-cant", text: "give", start: 10.62, end: 10.76, volumePercent: 58, pitchWeight: 620, pitchWidth: 100, motion: "pop" },
+          { id: "word-you-cant", text: "you", start: 10.82, end: 10.97, volumePercent: 58, pitchWeight: 620, pitchWidth: 100, motion: "pop" },
+          { id: "word-a-cant", text: "a", start: 11.03, end: 11.08, volumePercent: 54, pitchWeight: 560, pitchWidth: 98, motion: "pop" },
+          { id: "word-tab-cant", text: "tab", start: 11.13, end: 11.22, volumePercent: 62, pitchWeight: 660, pitchWidth: 104, motion: "pop" },
+          { id: "word-unless", text: "unless", start: 11.3, end: 11.73, volumePercent: 58, pitchWeight: 620, pitchWidth: 100, motion: "pop" },
+          { id: "word-you-order-2", text: "you", start: 11.76, end: 11.9, volumePercent: 56, pitchWeight: 600, pitchWidth: 100, motion: "pop" },
+          { id: "word-order-2", text: "order", start: 11.92, end: 12.32, volumePercent: 60, pitchWeight: 640, pitchWidth: 102, motion: "pop" },
+          { id: "word-something-cant", text: "something.", start: 12.38, end: 13.5, volumePercent: 62, pitchWeight: 660, pitchWidth: 104, motion: "pop" }
         ]
       },
       {
@@ -156,7 +177,7 @@ const CENTER_STAGE_MIN = 360;
         start: 14.82,
         end: 17.22,
         text: "You want a Pepsi, pal? You're gonna pay for it.",
-        lineBreakAfterWordIds: ["word-pal"],
+        lineBreakAfterWordIds: [],
         exception: false,
         offCamera: false,
         words: [
@@ -177,22 +198,23 @@ const CENTER_STAGE_MIN = 360;
         type: "dialogue",
         speakerId: "speaker-marty",
         start: 17.22,
-        end: 23.88,
-        text: "Just give me something without any sugar in it, okay?",
-        lineBreakAfterWordIds: ["word-something-2"],
+        end: 20.3,
+        text: "Look, just give me something without any sugar in it, okay?",
+        lineBreakAfterWordIds: [],
         exception: false,
         offCamera: false,
         words: [
-          { id: "word-just", text: "Just", start: 17.28, end: 17.5, volumePercent: 50, pitchWeight: 500, pitchWidth: 94, motion: "pop" },
-          { id: "word-give", text: "give", start: 17.52, end: 17.74, volumePercent: 52, pitchWeight: 510, pitchWidth: 96, motion: "pop" },
-          { id: "word-me", text: "me", start: 17.76, end: 17.92, volumePercent: 50, pitchWeight: 500, pitchWidth: 94, motion: "pop" },
-          { id: "word-something-2", text: "something", start: 17.96, end: 18.5, volumePercent: 54, pitchWeight: 520, pitchWidth: 96, motion: "pop" },
-          { id: "word-without-2", text: "without", start: 18.84, end: 19.2, volumePercent: 46, pitchWeight: 470, pitchWidth: 92, motion: "pop" },
-          { id: "word-any", text: "any", start: 19.22, end: 19.44, volumePercent: 48, pitchWeight: 480, pitchWidth: 92, motion: "pop" },
-          { id: "word-sugar-2", text: "sugar", start: 19.46, end: 19.86, volumePercent: 46, pitchWeight: 460, pitchWidth: 90, motion: "pop" },
-          { id: "word-in", text: "in", start: 19.88, end: 20.02, volumePercent: 46, pitchWeight: 450, pitchWidth: 90, motion: "pop" },
-          { id: "word-it", text: "it,", start: 20.04, end: 20.24, volumePercent: 48, pitchWeight: 460, pitchWidth: 90, motion: "pop" },
-          { id: "word-okay", text: "okay?", start: 20.26, end: 20.98, volumePercent: 62, pitchWeight: 620, pitchWidth: 102, motion: "pop" }
+          { id: "word-look", text: "Look,", start: 17.22, end: 17.34, volumePercent: 50, pitchWeight: 500, pitchWidth: 94, motion: "pop" },
+          { id: "word-just", text: "just", start: 17.34, end: 17.5, volumePercent: 50, pitchWeight: 500, pitchWidth: 94, motion: "pop" },
+          { id: "word-give", text: "give", start: 17.52, end: 17.68, volumePercent: 52, pitchWeight: 510, pitchWidth: 96, motion: "pop" },
+          { id: "word-me", text: "me", start: 17.7, end: 17.84, volumePercent: 50, pitchWeight: 500, pitchWidth: 94, motion: "pop" },
+          { id: "word-something-2", text: "something", start: 17.86, end: 18.38, volumePercent: 54, pitchWeight: 520, pitchWidth: 96, motion: "pop" },
+          { id: "word-without-2", text: "without", start: 18.72, end: 18.98, volumePercent: 46, pitchWeight: 470, pitchWidth: 92, motion: "pop" },
+          { id: "word-any", text: "any", start: 19.0, end: 19.16, volumePercent: 48, pitchWeight: 480, pitchWidth: 92, motion: "pop" },
+          { id: "word-sugar-2", text: "sugar", start: 19.18, end: 19.5, volumePercent: 46, pitchWeight: 460, pitchWidth: 90, motion: "pop" },
+          { id: "word-in", text: "in", start: 19.52, end: 19.64, volumePercent: 46, pitchWeight: 450, pitchWidth: 90, motion: "pop" },
+          { id: "word-it", text: "it,", start: 19.66, end: 19.82, volumePercent: 48, pitchWeight: 460, pitchWidth: 90, motion: "pop" },
+          { id: "word-okay", text: "okay?", start: 19.84, end: 20.22, volumePercent: 62, pitchWeight: 620, pitchWidth: 102, motion: "pop" }
         ]
       },
       {
@@ -220,7 +242,7 @@ const CENTER_STAGE_MIN = 360;
         text: "Hey, McFly.",
         lineBreakAfterWordIds: [],
         exception: false,
-        offCamera: true,
+        offCamera: false,
         words: [
           { id: "word-hey", text: "Hey,", start: 30.0, end: 30.24, volumePercent: 70, pitchWeight: 760, pitchWidth: 108, motion: "pop" },
           { id: "word-mcfly", text: "McFly.", start: 30.26, end: 30.82, volumePercent: 78, pitchWeight: 860, pitchWidth: 114, motion: "pop" }
@@ -241,22 +263,36 @@ const CENTER_STAGE_MIN = 360;
         ]
       },
       {
-        id: "cue-jukebox",
-        type: "music",
+        id: "cue-pepsi-can-cracks",
+        type: "sound",
         speakerId: "",
-        start: 32.5,
-        end: 34.3,
-        text: "low diner jukebox fades",
+        start: 32.12,
+        end: 33.18,
+        text: "pepsi can cracks open",
         lineBreakAfterWordIds: [],
-        exception: true,
+        exception: false,
         offCamera: false,
         words: [
-          { id: "word-jukebox", text: "low diner jukebox fades", start: 32.56, end: 34.16, volumePercent: 38, pitchWeight: 400, pitchWidth: 88, motion: "none" }
+          { id: "word-pepsi-can-cracks", text: "pepsi can cracks open", start: 32.18, end: 33.0, volumePercent: 55, pitchWeight: 400, pitchWidth: 100, motion: "none" }
+        ]
+      },
+      {
+        id: "cue-door-crack",
+        type: "sound",
+        speakerId: "",
+        start: 33.18,
+        end: 34.3,
+        text: "door crack",
+        lineBreakAfterWordIds: [],
+        exception: false,
+        offCamera: false,
+        words: [
+          { id: "word-door-crack", text: "door crack", start: 33.24, end: 33.94, volumePercent: 55, pitchWeight: 400, pitchWidth: 100, motion: "none" }
         ]
       }
     ],
     review: {
-      notes: ["Mock transcript uses text extracted from the After Effects template and follows read-ahead, word-color sync, off-camera, sound-effect, and music-cue guidance.", "Standard closed captions remain a required companion deliverable."],
+      notes: ["Mock transcript preserves the full sample dialogue while using AE-style rendered caption behavior.", "Standard closed captions remain a required companion deliverable."],
       validationStatus: "unchecked"
     }
   };
