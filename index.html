@@ -565,8 +565,7 @@
 
     .cue {
       display: grid;
-      grid-template-columns: 68px minmax(0, 1fr);
-      gap: 12px;
+      gap: 10px;
       padding: 10px 8px;
       border: 1px solid transparent;
       border-radius: var(--radius);
@@ -574,8 +573,23 @@
       background: transparent;
     }
 
-    .cue[role="button"] {
+    .cue-select-surface {
+      display: grid;
+      grid-template-columns: 68px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      width: 100%;
+      min-height: var(--target);
+      border: 0;
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      text-align: left;
       cursor: pointer;
+    }
+
+    .cue-select-surface:hover {
+      color: var(--ink);
     }
 
     .cue.active {
@@ -616,6 +630,52 @@
     .cue-copy.music {
       color: var(--ink);
       font-style: italic;
+    }
+
+    .cue-edit-grid {
+      display: grid;
+      gap: 10px;
+      padding-top: 2px;
+    }
+
+    .cue-edit-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .danger-button {
+      min-height: var(--target);
+      border: 1px solid var(--status-fail-border);
+      border-radius: 999px;
+      background: var(--status-fail-bg);
+      color: var(--status-fail-kicker);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 13px;
+    }
+
+    .transcript-panel {
+      min-height: 100%;
+      grid-template-rows: minmax(0, 1fr) auto;
+      align-content: stretch;
+    }
+
+    .transcript-list {
+      display: grid;
+      align-content: start;
+    }
+
+    .transcript-actions {
+      position: sticky;
+      bottom: -14px;
+      margin: 0 -14px -14px;
+      padding: 12px 14px 14px;
+      border-top: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(20, 18, 15, 0.78) 0%, var(--panel) 42%);
+      z-index: 3;
     }
 
     .word {
@@ -687,7 +747,7 @@
     .inspector-head {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-start;
       padding: 0 14px;
       border-bottom: 1px solid var(--line);
     }
@@ -708,6 +768,61 @@
       display: grid;
       gap: 16px;
       align-content: start;
+    }
+
+    .editor-section {
+      display: grid;
+      gap: 14px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .editor-section:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .editor-section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .editor-section-title {
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+
+    .word-picker {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .word-picker-button,
+    .word-nav-button {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--ink-soft);
+      padding: 0 10px;
+    }
+
+    .word-picker-button.active {
+      border-color: var(--yellow);
+      background: var(--yellow);
+      color: var(--void);
+      font-weight: 800;
+    }
+
+    .word-editor-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .control-group {
@@ -1460,8 +1575,7 @@
 
         <div class="inspector">
           <div class="inspector-head">
-            <div class="inspector-title">Intention <span>"tool"</span></div>
-            <span class="small-pill">word</span>
+            <div class="inspector-title">EDITOR</div>
           </div>
           <div class="inspector-body">
             <div class="control-group">
@@ -1546,7 +1660,7 @@
         cwi: createSampleProject(),
         activeTab: "transcript",
         selectedCueId: "cue-launch",
-        selectedWordId: "word-launched",
+        selectedWordId: "",
         selectedSpeakerId: "",
         mediaObjectUrl: "",
         importError: "",
@@ -1752,18 +1866,24 @@
             return;
           }
 
-          const wordButton = event.target.closest("[data-word-id]");
-          if (wordButton) {
-            state.selectedCueId = wordButton.dataset.cueId;
-            state.selectedWordId = wordButton.dataset.wordId;
+          const addCue = event.target.closest("[data-add-cue]");
+          if (addCue) {
+            addCueToTranscript();
             renderAll();
             return;
           }
 
-          const cueNode = event.target.closest("[data-cue-id]");
-          if (cueNode) {
-            state.selectedCueId = cueNode.dataset.cueId;
-            state.selectedWordId = firstWordId(getCue(state.selectedCueId));
+          const deleteCue = event.target.closest("[data-delete-cue]");
+          if (deleteCue) {
+            deleteCueFromTranscript(deleteCue.dataset.deleteCue);
+            renderAll();
+            return;
+          }
+
+          const cueSelect = event.target.closest("[data-cue-select]");
+          if (cueSelect) {
+            state.selectedCueId = cueSelect.dataset.cueSelect;
+            state.selectedWordId = "";
             renderAll();
           }
         });
@@ -1778,27 +1898,43 @@
             return;
           }
 
-          const cueNode = event.target.closest(".cue[role='button']");
-          if (!cueNode || event.target.closest("button")) return;
-
-          event.preventDefault();
-          state.selectedCueId = cueNode.dataset.cueId;
-          state.selectedWordId = firstWordId(getCue(state.selectedCueId));
-          renderAll();
+          const cueSelect = event.target.closest("[data-cue-select]");
+          if (cueSelect && !event.target.closest("input, select, textarea, button")) {
+            event.preventDefault();
+            state.selectedCueId = cueSelect.dataset.cueSelect;
+            state.selectedWordId = "";
+            renderAll();
+          }
         });
 
         els.sideContent.addEventListener("input", (event) => {
-          if (!event.target.dataset.speakerControl) return;
-          updateSpeakerFromControl(event.target);
-          renderInspector();
-          renderTimeline();
-          renderPlayback();
+          if (event.target.dataset.speakerControl) {
+            updateSpeakerFromControl(event.target);
+            renderInspector();
+            renderTimeline();
+            renderPlayback();
+            return;
+          }
+
+          if (event.target.dataset.transcriptControl) {
+            updateTranscriptCueFromControl(event.target);
+            renderInspector();
+            renderTimeline();
+            renderPlayback();
+          }
         });
 
         els.sideContent.addEventListener("change", (event) => {
-          if (!event.target.dataset.speakerControl) return;
-          updateSpeakerFromControl(event.target);
-          renderAll();
+          if (event.target.dataset.speakerControl) {
+            updateSpeakerFromControl(event.target);
+            renderAll();
+            return;
+          }
+
+          if (event.target.dataset.transcriptControl) {
+            updateTranscriptCueFromControl(event.target);
+            renderAll();
+          }
         });
       }
 
@@ -1808,7 +1944,7 @@
           if (!segment) return;
 
           state.selectedCueId = segment.dataset.cueId;
-          state.selectedWordId = segment.dataset.wordId || firstWordId(getCue(state.selectedCueId));
+          state.selectedWordId = "";
           renderAll();
         });
       }
@@ -1839,6 +1975,21 @@
               cue.offCamera = Boolean(getSpeaker(cue.speakerId) && getSpeaker(cue.speakerId).defaultOffCamera);
               renderAll();
             }
+            return;
+          }
+
+          const wordPick = event.target.closest("[data-inspector-word-id]");
+          if (wordPick) {
+            state.selectedCueId = wordPick.dataset.cueId;
+            state.selectedWordId = wordPick.dataset.inspectorWordId;
+            renderAll();
+            return;
+          }
+
+          const wordNav = event.target.closest("[data-word-nav]");
+          if (wordNav) {
+            selectAdjacentWord(Number(wordNav.dataset.wordNav));
+            renderAll();
             return;
           }
 
@@ -1964,7 +2115,7 @@
             state.importWarnings = findMissingImportedFields(parsed);
             state.cwi = normalizeImportedProject(parsed);
             state.selectedCueId = state.cwi.cues[0] ? state.cwi.cues[0].id : "";
-            state.selectedWordId = firstWordId(state.cwi.cues[0]);
+            state.selectedWordId = "";
             state.activeTab = "qa";
             state.importError = "";
             renderAll();
@@ -2076,38 +2227,71 @@
 
       function renderTranscriptPanel() {
         const current = getCurrentCueAndWord();
-        els.sideContent.innerHTML = state.cwi.cues.map((cue) => {
+        els.sideContent.innerHTML = `
+          <div class="panel-list transcript-panel">
+            <div class="transcript-list">
+              ${state.cwi.cues.map((cue) => {
           const speaker = getSpeaker(cue.speakerId);
-          const active = cue.id === state.selectedCueId || cue.id === current.cueId;
+          const active = cue.id === state.selectedCueId;
           const cueTypeClass = cue.type === "dialogue" ? "" : ` ${cue.type}`;
           const speakerMarkup = speaker
             ? `<div class="speaker"><i style="background: ${escapeAttr(speaker.color)}"></i>${escapeHtml(speaker.name)}</div>`
             : `<div class="speaker"><i style="background: var(--ink-dim)"></i>${escapeHtml(cue.type)}</div>`;
 
           return `
-            <div class="cue${active ? " active" : ""}" role="button" tabindex="0" data-cue-id="${escapeAttr(cue.id)}">
-              <div>
-                <div class="cue-time">${formatTime(cue.start)}</div>
-                ${speakerMarkup}
-              </div>
-              <div class="cue-copy${cueTypeClass}">
-                ${renderCueWordsForTranscript(cue, current.wordId)}
-              </div>
+            <div class="cue${active ? " active" : ""}" data-cue-id="${escapeAttr(cue.id)}">
+              <button type="button" class="cue-select-surface" data-cue-select="${escapeAttr(cue.id)}" aria-expanded="${active}">
+                <div>
+                  <div class="cue-time">${formatTime(cue.start)}</div>
+                  ${speakerMarkup}
+                </div>
+                <div class="cue-copy${cueTypeClass}">
+                  ${renderCueWordsForTranscript(cue, current.wordId)}
+                </div>
+              </button>
+              ${active ? renderTranscriptCueEditor(cue) : ""}
             </div>
           `;
-        }).join("");
+        }).join("")}
+            </div>
+            <div class="panel-action-row transcript-actions">
+              <button type="button" class="primary-button" data-add-cue>Add cue</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderTranscriptCueEditor(cue) {
+        return `
+          <div class="cue-edit-grid">
+            <div class="control-group">
+              <label class="control-label" for="${escapeAttr(cue.id)}TranscriptType">Cue type</label>
+              <select class="control-select" id="${escapeAttr(cue.id)}TranscriptType" data-transcript-control="type" data-cue-id="${escapeAttr(cue.id)}">
+                ${CUE_TYPES.map((type) => `<option value="${type}"${cue.type === type ? " selected" : ""}>${capitalize(type)}</option>`).join("")}
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="${escapeAttr(cue.id)}TranscriptText">Transcript text</label>
+              <textarea class="control-textarea" id="${escapeAttr(cue.id)}TranscriptText" data-transcript-control="text" data-cue-id="${escapeAttr(cue.id)}">${escapeHtml(cue.text || "")}</textarea>
+            </div>
+
+            <div class="cue-edit-actions">
+              <button type="button" class="danger-button" data-delete-cue="${escapeAttr(cue.id)}">Delete cue</button>
+            </div>
+          </div>
+        `;
       }
 
       function renderCueWordsForTranscript(cue, liveWordId) {
         if (!cue.words || cue.words.length === 0) {
-          return `<button type="button" class="word${cue.id === state.selectedCueId ? " selected" : ""}" data-cue-id="${escapeAttr(cue.id)}">${escapeHtml(formatCueText(cue))}</button>`;
+          return `<span class="word">${escapeHtml(formatCueText(cue))}</span>`;
         }
 
         return cue.words.map((word) => {
-          const selected = word.id === state.selectedWordId;
           const live = word.id === liveWordId;
           const warn = cue.exception || hasTimingWarning(cue, word);
-          return `<button type="button" class="word${selected ? " selected" : ""}${live ? " live" : ""}${warn ? " warn" : ""}" data-cue-id="${escapeAttr(cue.id)}" data-word-id="${escapeAttr(word.id)}">${escapeHtml(word.text)}</button>`;
+          return `<span class="word${live ? " live" : ""}${warn ? " warn" : ""}">${escapeHtml(word.text)}</span>`;
         }).join(" ");
       }
 
@@ -2240,6 +2424,116 @@
         return SPEAKER_PALETTE.some((entry) => entry.role === role && entry.color.toLowerCase() === String(color).toLowerCase());
       }
 
+      function updateTranscriptCueFromControl(control) {
+        const cue = getCue(control.dataset.cueId);
+        if (!cue) return;
+
+        const value = control.value;
+        if (control.dataset.transcriptControl === "type") {
+          cue.type = CUE_TYPES.includes(value) ? value : "dialogue";
+          if (cue.type !== "dialogue") {
+            cue.speakerId = "";
+            cue.offCamera = false;
+          } else if (!cue.speakerId && state.cwi.speakers[0]) {
+            cue.speakerId = state.cwi.speakers[0].id;
+          }
+        } else if (control.dataset.transcriptControl === "text") {
+          updateCueTextAndWords(cue, String(value));
+          refreshTranscriptCueRow(cue);
+        }
+
+        if (state.selectedWordId && (!cue.words || !cue.words.some((word) => word.id === state.selectedWordId))) state.selectedWordId = "";
+      }
+
+      function addCueToTranscript() {
+        const currentIndex = state.cwi.cues.findIndex((cue) => cue.id === state.selectedCueId);
+        const anchor = currentIndex >= 0 ? state.cwi.cues[currentIndex] : state.cwi.cues[state.cwi.cues.length - 1];
+        const start = anchor ? roundTime(anchor.end + 0.2) : 0;
+        const end = roundTime(start + 1.8);
+        const speaker = state.cwi.speakers[0] || null;
+        const cue = {
+          id: uniqueId("cue"),
+          type: "dialogue",
+          speakerId: speaker ? speaker.id : "",
+          start,
+          end,
+          text: "New caption",
+          lineBreakAfterWordIds: [],
+          exception: false,
+          offCamera: speaker ? Boolean(speaker.defaultOffCamera) : false,
+          words: []
+        };
+        cue.words = buildWordsForCueText(cue, cue.text);
+
+        if (currentIndex >= 0) state.cwi.cues.splice(currentIndex + 1, 0, cue);
+        else state.cwi.cues.push(cue);
+
+        state.selectedCueId = cue.id;
+        state.selectedWordId = "";
+        state.activeTab = "transcript";
+      }
+
+      function deleteCueFromTranscript(cueId) {
+        const index = state.cwi.cues.findIndex((cue) => cue.id === cueId);
+        if (index === -1) return;
+
+        state.cwi.cues.splice(index, 1);
+        const nextCue = state.cwi.cues[Math.min(index, state.cwi.cues.length - 1)] || state.cwi.cues[index - 1] || null;
+        state.selectedCueId = nextCue ? nextCue.id : "";
+        state.selectedWordId = "";
+      }
+
+      function updateCueTextAndWords(cue, text) {
+        cue.text = text;
+        cue.words = buildWordsForCueText(cue, text);
+        const wordIds = new Set((cue.words || []).map((word) => word.id));
+        cue.lineBreakAfterWordIds = (cue.lineBreakAfterWordIds || []).filter((wordId) => wordIds.has(wordId));
+      }
+
+      function refreshTranscriptCueRow(cue) {
+        const row = Array.from(els.sideContent.querySelectorAll(".cue[data-cue-id]")).find((item) => item.dataset.cueId === cue.id);
+        if (!row) return;
+
+        const copy = row.querySelector(".cue-copy");
+        if (copy) copy.innerHTML = renderCueWordsForTranscript(cue, getCurrentCueAndWord().wordId);
+      }
+
+      function buildWordsForCueText(cue, text) {
+        const tokens = tokenizeTranscriptText(text);
+        const oldWords = Array.isArray(cue.words) ? cue.words : [];
+        if (!tokens.length) return [];
+
+        if (tokens.length === oldWords.length) {
+          return oldWords.map((word, index) => ({
+            ...word,
+            text: tokens[index]
+          }));
+        }
+
+        const reservedIds = new Set();
+        const duration = Math.max(0.01, Number(cue.end) - Number(cue.start));
+        const slice = duration / tokens.length;
+        return tokens.map((token, index) => {
+          const fallback = oldWords[Math.min(index, oldWords.length - 1)] || {};
+          const id = uniqueId(`${cue.id}-word`, reservedIds);
+          reservedIds.add(id);
+          return {
+            id,
+            text: token,
+            start: roundTime(Number(cue.start) + slice * index),
+            end: roundTime(Number(cue.start) + slice * (index + 1)),
+            volumePercent: Number.isFinite(Number(fallback.volumePercent)) ? fallback.volumePercent : 55,
+            pitchWeight: Number.isFinite(Number(fallback.pitchWeight)) ? fallback.pitchWeight : 400,
+            pitchWidth: Number.isFinite(Number(fallback.pitchWidth)) ? fallback.pitchWidth : 100,
+            motion: MOTIONS.includes(fallback.motion) ? fallback.motion : "pop"
+          };
+        });
+      }
+
+      function tokenizeTranscriptText(text) {
+        return String(text || "").trim().split(/\s+/).filter(Boolean);
+      }
+
       function renderQaPanel() {
         const checks = validateProject(state.cwi);
         els.sideContent.innerHTML = `
@@ -2272,62 +2566,77 @@
         const word = getSelectedWord();
 
         if (!cue) {
-          els.inspectorHead.innerHTML = '<div class="inspector-title">Intention <span>none</span></div><span class="small-pill">empty</span>';
+          els.inspectorHead.innerHTML = '<div class="inspector-title">EDITOR</div>';
           els.inspectorBody.innerHTML = '<div class="empty-card">Import a CWI JSON file or select a cue to edit caption intent.</div>';
           return;
         }
 
-        const speaker = getSpeaker(cue.speakerId);
-        const selectedLabel = word ? word.text : formatCueText(cue);
-        els.inspectorHead.innerHTML = `
-          <div class="inspector-title">Intention <span>"${escapeHtml(selectedLabel)}"</span></div>
-          <span class="small-pill">${escapeHtml(word ? "word" : cue.type)}</span>
-        `;
+        els.inspectorHead.innerHTML = '<div class="inspector-title">EDITOR</div>';
 
         els.inspectorBody.innerHTML = `
-          <div class="control-group">
-            <label class="control-label" for="cueType">Cue type</label>
-            <select class="control-select" id="cueType" data-control="cue-type">
-              ${CUE_TYPES.map((type) => `<option value="${type}"${cue.type === type ? " selected" : ""}>${capitalize(type)}</option>`).join("")}
-            </select>
-          </div>
-
-          <div class="control-group">
-            <label class="control-label" for="cueText">Cue text</label>
-            <textarea class="control-textarea" id="cueText" data-control="cue-text">${escapeHtml(cue.text || "")}</textarea>
-          </div>
-
-          ${renderWordControls(word)}
-          ${renderSpeakerControls(cue, speaker)}
-          ${renderIntentControls(cue, word)}
+          ${renderCueEditor(cue)}
+          ${renderWordEditor(cue, word)}
         `;
       }
 
-      function renderWordControls(word) {
-        if (!word) {
-          return '<div class="empty-card">This cue has no editable word timing yet. Edit the cue text or import a fuller CWI project.</div>';
-        }
+      function renderCueEditor(cue) {
+        const speaker = getSpeaker(cue.speakerId);
+        const words = cue.words || [];
+        const selectedIndex = words.findIndex((item) => item.id === state.selectedWordId);
 
         return `
-          <div class="control-group">
-            <label class="control-label" for="wordText">Transcript word</label>
-            <input class="control-input" id="wordText" data-control="word-text" value="${escapeAttr(word.text)}">
-          </div>
+          <section class="editor-section" aria-label="Cue Editor">
+            <div class="editor-section-head">
+              <div class="editor-section-title">Cue Editor</div>
+              <span class="small-pill">${escapeHtml(capitalize(cue.type))}</span>
+            </div>
 
-          <div class="field-row">
-            <div class="control-group">
-              <label class="control-label" for="wordStart">Word start</label>
-              <input class="control-input" id="wordStart" type="number" min="0" step="0.01" data-control="word-start" value="${word.start}">
+            <div class="field-row">
+              <div class="control-group">
+                <label class="control-label" for="cueStart">Cue start</label>
+                <input class="control-input" id="cueStart" type="number" min="0" step="0.01" data-control="cue-start" value="${cue.start}">
+              </div>
+              <div class="control-group">
+                <label class="control-label" for="cueEnd">Cue end</label>
+                <input class="control-input" id="cueEnd" type="number" min="0" step="0.01" data-control="cue-end" value="${cue.end}">
+              </div>
             </div>
+
+            ${renderSpeakerSelector(cue, speaker)}
+
             <div class="control-group">
-              <label class="control-label" for="wordEnd">Word end</label>
-              <input class="control-input" id="wordEnd" type="number" min="0" step="0.01" data-control="word-end" value="${word.end}">
+              <label class="control-label" for="cueText">Cue text</label>
+              <textarea class="control-textarea" id="cueText" data-control="cue-text">${escapeHtml(cue.text || "")}</textarea>
             </div>
+
+            <div class="control-group">
+              <div class="control-label">Cue flags</div>
+              <div class="checkbox-grid">
+                <label class="checkbox-row"><input type="checkbox" data-control="off-camera"${cue.offCamera ? " checked" : ""}> Off-camera voice</label>
+                <label class="checkbox-row"><input type="checkbox" data-control="exception"${cue.exception ? " checked" : ""}> Scene exception</label>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <div class="control-label">Words in cue${selectedIndex >= 0 ? ` · ${selectedIndex + 1} of ${words.length}` : ""}</div>
+              ${renderCueWordPicker(cue)}
+            </div>
+          </section>
+        `;
+      }
+
+      function renderCueWordPicker(cue) {
+        const words = cue.words || [];
+        if (!words.length) return '<div class="empty-card">This cue has no word timing records yet.</div>';
+
+        return `
+          <div class="word-picker">
+            ${words.map((word) => `<button type="button" class="word-picker-button${word.id === state.selectedWordId ? " active" : ""}" data-cue-id="${escapeAttr(cue.id)}" data-inspector-word-id="${escapeAttr(word.id)}">${escapeHtml(word.text)}</button>`).join("")}
           </div>
         `;
       }
 
-      function renderSpeakerControls(cue, speaker) {
+      function renderSpeakerSelector(cue, speaker) {
         const inheritedColor = speaker ? speaker.color : "var(--ink-dim)";
         const speakerMeta = speaker
           ? roleLabel(speaker.role)
@@ -2379,7 +2688,21 @@
         `;
       }
 
-      function renderIntentControls(cue, word) {
+      function renderWordEditor(cue, word) {
+        const words = cue.words || [];
+        const selectedIndex = word ? words.findIndex((item) => item.id === word.id) : -1;
+        if (!word) {
+          return `
+            <section class="editor-section" aria-label="Word Editor">
+              <div class="editor-section-head">
+                <div class="editor-section-title">Word Editor</div>
+                <span class="small-pill">empty</span>
+              </div>
+              <div class="empty-card">Select a word in the Cue Editor to adjust transcript text, timing, motion, volume, pitch, and layout.</div>
+            </section>
+          `;
+        }
+
         const volume = word ? word.volumePercent : 50;
         const pitchWeight = word ? word.pitchWeight : 400;
         const pitchWidth = word ? word.pitchWidth : 100;
@@ -2387,49 +2710,75 @@
         const hasLineBreak = word && Array.isArray(cue.lineBreakAfterWordIds) && cue.lineBreakAfterWordIds.includes(word.id);
 
         return `
-          <div class="control-group">
-            <div class="control-label">Vocal emphasis</div>
-            <div class="segmented">
-              <button type="button" class="${volume >= 70 ? "active" : ""}" data-volume-preset="82" aria-pressed="${volume >= 70}">Loud</button>
-              <button type="button" class="${volume > 40 && volume < 70 ? "active" : ""}" data-volume-preset="55" aria-pressed="${volume > 40 && volume < 70}">Normal</button>
-              <button type="button" class="${volume <= 40 ? "active" : ""}" data-volume-preset="28" aria-pressed="${volume <= 40}">Whisper</button>
+          <section class="editor-section" aria-label="Word Editor">
+            <div class="editor-section-head">
+              <div class="editor-section-title">Word Editor</div>
+              <span class="small-pill">${selectedIndex + 1} of ${words.length}</span>
             </div>
-          </div>
 
-          <div class="control-group">
-            <label class="control-label" for="motionPattern">Motion pattern</label>
-            <select class="control-select" id="motionPattern" data-control="motion"${!word ? " disabled" : ""}>
-              ${MOTIONS.map((item) => `<option value="${item}"${motion === item ? " selected" : ""}>${motionLabel(item)}</option>`).join("")}
-            </select>
-          </div>
-
-          <div class="control-group">
-            <label class="control-label" for="volumeSize">Volume size</label>
-            <div class="range-row wide">
-              <input type="range" id="volumeSize" min="0" max="100" value="${volume}" data-control="volume"${!word ? " disabled" : ""}>
-              <span data-output="volume">${volumeToPercent(volume).toFixed(1)}%</span>
+            <div class="word-editor-actions">
+              <button type="button" class="word-nav-button" data-word-nav="-1">Previous</button>
+              <button type="button" class="word-nav-button" data-word-nav="1">Next</button>
             </div>
-          </div>
 
-          <div class="field-row">
             <div class="control-group">
-              <label class="control-label" for="pitchWeight">Pitch weight</label>
-              <input class="control-input" id="pitchWeight" type="number" min="300" max="1000" step="10" data-control="pitch-weight" value="${pitchWeight}"${!word ? " disabled" : ""}>
+              <label class="control-label" for="wordText">Word text</label>
+              <input class="control-input" id="wordText" data-control="word-text" value="${escapeAttr(word.text)}">
             </div>
-            <div class="control-group">
-              <label class="control-label" for="pitchWidth">Pitch width</label>
-              <input class="control-input" id="pitchWidth" type="number" min="75" max="125" step="1" data-control="pitch-width" value="${pitchWidth}"${!word ? " disabled" : ""}>
-            </div>
-          </div>
 
-          <div class="control-group">
-            <div class="control-label">Cue flags</div>
-            <div class="checkbox-grid">
-              <label class="checkbox-row"><input type="checkbox" data-control="off-camera"${cue.offCamera ? " checked" : ""}> Off-camera voice</label>
-              <label class="checkbox-row"><input type="checkbox" data-control="exception"${cue.exception ? " checked" : ""}> Scene exception</label>
-              <label class="checkbox-row"><input type="checkbox" data-control="line-break"${hasLineBreak ? " checked" : ""}${!word ? " disabled" : ""}> Line break after selected word</label>
+            <div class="field-row">
+              <div class="control-group">
+                <label class="control-label" for="wordStart">Word start</label>
+                <input class="control-input" id="wordStart" type="number" min="0" step="0.01" data-control="word-start" value="${word.start}">
+              </div>
+              <div class="control-group">
+                <label class="control-label" for="wordEnd">Word end</label>
+                <input class="control-input" id="wordEnd" type="number" min="0" step="0.01" data-control="word-end" value="${word.end}">
+              </div>
             </div>
-          </div>
+
+            <div class="control-group">
+              <div class="control-label">Vocal emphasis</div>
+              <div class="segmented">
+                <button type="button" class="${volume >= 70 ? "active" : ""}" data-volume-preset="82" aria-pressed="${volume >= 70}">Loud</button>
+                <button type="button" class="${volume > 40 && volume < 70 ? "active" : ""}" data-volume-preset="55" aria-pressed="${volume > 40 && volume < 70}">Normal</button>
+                <button type="button" class="${volume <= 40 ? "active" : ""}" data-volume-preset="28" aria-pressed="${volume <= 40}">Whisper</button>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="motionPattern">Motion pattern</label>
+              <select class="control-select" id="motionPattern" data-control="motion">
+                ${MOTIONS.map((item) => `<option value="${item}"${motion === item ? " selected" : ""}>${motionLabel(item)}</option>`).join("")}
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="volumeSize">Volume size</label>
+              <div class="range-row wide">
+                <input type="range" id="volumeSize" min="0" max="100" value="${volume}" data-control="volume">
+                <span data-output="volume">${volumeToPercent(volume).toFixed(1)}%</span>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="control-group">
+                <label class="control-label" for="pitchWeight">Pitch weight</label>
+                <input class="control-input" id="pitchWeight" type="number" min="300" max="1000" step="10" data-control="pitch-weight" value="${pitchWeight}">
+              </div>
+              <div class="control-group">
+                <label class="control-label" for="pitchWidth">Pitch width</label>
+                <input class="control-input" id="pitchWidth" type="number" min="75" max="125" step="1" data-control="pitch-width" value="${pitchWidth}">
+              </div>
+            </div>
+
+            <div class="control-group">
+              <div class="control-label">Layout</div>
+              <div class="checkbox-grid">
+                <label class="checkbox-row"><input type="checkbox" data-control="line-break"${hasLineBreak ? " checked" : ""}> Line break after selected word</label>
+              </div>
+            </div>
+          </section>
         `;
       }
 
@@ -2590,9 +2939,12 @@
         const value = control.type === "checkbox" ? control.checked : control.value;
 
         switch (control.dataset.control) {
-          case "cue-type":
-            cue.type = CUE_TYPES.includes(value) ? value : "dialogue";
-            if (cue.type !== "dialogue") cue.speakerId = "";
+          case "cue-start":
+            cue.start = roundTime(Math.max(0, Number(value) || 0));
+            if (cue.end <= cue.start) cue.end = roundTime(cue.start + 0.01);
+            break;
+          case "cue-end":
+            cue.end = roundTime(Math.max(cue.start + 0.01, Number(value) || cue.start + 0.01));
             break;
           case "cue-text":
             cue.text = String(value);
@@ -2608,10 +2960,16 @@
             }
             break;
           case "word-start":
-            if (word) word.start = roundTime(Math.max(0, Number(value) || 0));
+            if (word) {
+              word.start = roundTime(Math.max(0, Number(value) || 0));
+              normalizeCueTiming(cue);
+            }
             break;
           case "word-end":
-            if (word) word.end = roundTime(Math.max(word.start + 0.01, Number(value) || word.start + 0.01));
+            if (word) {
+              word.end = roundTime(Math.max(word.start + 0.01, Number(value) || word.start + 0.01));
+              normalizeCueTiming(cue);
+            }
             break;
           case "motion":
             if (word) word.motion = MOTIONS.includes(value) ? value : "pop";
@@ -2638,7 +2996,6 @@
             break;
         }
 
-        normalizeCueTiming(cue);
       }
 
       function updateRangeOutputs() {
@@ -2831,7 +3188,7 @@
       function getSelectedWord() {
         const cue = getSelectedCue();
         if (!cue || !cue.words) return null;
-        return cue.words.find((word) => word.id === state.selectedWordId) || cue.words[0] || null;
+        return cue.words.find((word) => word.id === state.selectedWordId) || null;
       }
 
       function getSpeaker(speakerId) {
@@ -2849,9 +3206,7 @@
           cue = state.cwi.cues[0];
           state.selectedCueId = cue.id;
         }
-        if (!cue.words || !cue.words.some((word) => word.id === state.selectedWordId)) {
-          state.selectedWordId = firstWordId(cue);
-        }
+        if (state.selectedWordId && (!cue.words || !cue.words.some((word) => word.id === state.selectedWordId))) state.selectedWordId = "";
       }
 
       function firstWordId(cue) {
@@ -2886,6 +3241,22 @@
         const next = new Set(cue.lineBreakAfterWordIds);
         enabled ? next.add(wordId) : next.delete(wordId);
         cue.lineBreakAfterWordIds = Array.from(next);
+      }
+
+      function selectAdjacentWord(direction) {
+        const cue = getSelectedCue();
+        const words = cue && cue.words ? cue.words : [];
+        if (!words.length) {
+          state.selectedWordId = "";
+          return;
+        }
+
+        const currentIndex = words.findIndex((word) => word.id === state.selectedWordId);
+        const fallbackIndex = direction > 0 ? 0 : words.length - 1;
+        const nextIndex = currentIndex === -1
+          ? fallbackIndex
+          : clamp(currentIndex + direction, 0, words.length - 1);
+        state.selectedWordId = words[nextIndex].id;
       }
 
       function wordFontSizePx(word) {
@@ -2975,11 +3346,12 @@
         return "Supporting character";
       }
 
-      function uniqueId(prefix) {
+      function uniqueId(prefix, reservedIds = new Set()) {
         const existingIds = new Set([
           ...state.cwi.speakers.map((speaker) => speaker.id),
           ...state.cwi.cues.map((cue) => cue.id),
-          ...state.cwi.cues.flatMap((cue) => (cue.words || []).map((word) => word.id))
+          ...state.cwi.cues.flatMap((cue) => (cue.words || []).map((word) => word.id)),
+          ...reservedIds
         ]);
         let index = existingIds.size + 1;
         let id = `${prefix}-${index}`;
