@@ -3,7 +3,7 @@
       const state = {
         cwi: createSampleProject(),
         activeTab: "transcript",
-        selectedCueId: "cue-launch",
+        selectedCueId: "cue-riverside-drive",
         selectedWordId: "",
         selectedSpeakerId: "",
         mediaObjectUrl: "",
@@ -24,6 +24,7 @@
         els.captionSafe = document.querySelector(".caption-safe");
         els.playButton = document.querySelector(".play-icon");
         els.stepButtons = document.querySelectorAll(".preview-button");
+        els.soundButton = document.querySelector(".sound-button");
         els.timeReadout = document.querySelector(".time-readout");
         els.timelineGrid = document.querySelector(".timeline-grid");
         els.sideContent = document.querySelector(".transcript");
@@ -37,6 +38,8 @@
         els.tabs = Array.from(document.querySelectorAll(".tab"));
 
         els.video.src = DEFAULT_MEDIA_SRC;
+        els.video.muted = false;
+        els.video.volume = 0.85;
         setupTopActions();
         setupTabs();
         setupPlaybackControls();
@@ -88,6 +91,8 @@
         backButton.addEventListener("click", () => stepPlayback(-0.25));
         playButton.addEventListener("click", togglePlayback);
         forwardButton.addEventListener("click", () => stepPlayback(0.25));
+        els.soundButton.addEventListener("click", toggleSound);
+        setSoundButton();
       }
 
       function setupVideoEvents() {
@@ -105,6 +110,7 @@
         });
         els.video.addEventListener("pause", setPlayButton);
         els.video.addEventListener("ended", setPlayButton);
+        els.video.addEventListener("volumechange", setSoundButton);
       }
 
       function setupSidePanelEvents() {
@@ -409,6 +415,8 @@
 
       function togglePlayback() {
         if (els.video.paused) {
+          els.video.muted = false;
+          if (els.video.volume === 0) els.video.volume = 0.85;
           els.video.play().catch(() => {
             state.importError = "Preview playback was blocked by the browser.";
             state.activeTab = "qa";
@@ -417,6 +425,16 @@
         } else {
           els.video.pause();
         }
+      }
+
+      function toggleSound() {
+        if (els.video.muted || els.video.volume === 0) {
+          els.video.muted = false;
+          if (els.video.volume === 0) els.video.volume = 0.85;
+        } else {
+          els.video.muted = true;
+        }
+        setSoundButton();
       }
 
       function stepPlayback(delta) {
@@ -1228,18 +1246,21 @@
         const color = speaker ? speaker.color : "var(--cyan)";
         const words = cue.words && cue.words.length ? cue.words : wordsFromCueText(cue);
         const html = words.map((word) => {
-          const live = isWordLive(word, els.video.currentTime);
-          const spoken = els.video.currentTime >= Number(word.start);
+          const time = els.video.currentTime;
+          const live = isWordLive(word, time);
+          const intentStyle = wordMotionStyle(word, time);
+          const spoken = time >= Number(word.start);
           const sizePx = wordFontSizePx(word);
           const style = [
             spoken ? `color: ${color}` : "",
             `font-size: ${sizePx}px`,
             `font-weight: ${clamp(Number(word.pitchWeight) || 400, 300, 1000)}`,
+            intentStyle.transform ? `transform: ${intentStyle.transform}` : "",
             `font-variation-settings: "wght" ${clamp(Number(word.pitchWeight) || 400, 300, 1000)}, "wdth" ${clamp(Number(word.pitchWidth) || 100, 75, 125)}`
           ].filter(Boolean).join("; ");
           const classes = ["caption-word"];
           if (spoken) classes.push("spoken");
-          if (live && word.motion !== "none") classes.push("intent");
+          if (intentStyle.transform && word.motion !== "none") classes.push("intent");
           if (cue.offCamera) classes.push("off-camera");
           const breakMarkup = cue.lineBreakAfterWordIds && cue.lineBreakAfterWordIds.includes(word.id) ? "<br>" : "";
           return `<span class="${classes.join(" ")}" style="${escapeAttr(style)}">${escapeHtml(word.text)}</span>${breakMarkup}`;
@@ -1284,6 +1305,16 @@
           : '<path d="M8 5v14"></path><path d="M16 5v14"></path>';
         els.playButton.setAttribute("aria-label", els.video.paused ? "Play preview" : "Pause preview");
         els.playButton.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
+      }
+
+      function setSoundButton() {
+        if (!els.soundButton) return;
+        const muted = els.video.muted || els.video.volume === 0;
+        const path = muted
+          ? '<path d="M4 9v6h4l5 4V5L8 9H4Z"></path><path d="m17 9 4 6"></path><path d="m21 9-4 6"></path>'
+          : '<path d="M4 9v6h4l5 4V5L8 9H4Z"></path><path d="M17 9.5a4 4 0 0 1 0 5"></path><path d="M19.5 7a7 7 0 0 1 0 10"></path>';
+        els.soundButton.setAttribute("aria-label", muted ? "Unmute sound" : "Mute sound");
+        els.soundButton.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
       }
 
       function applyInspectorControl(control) {
@@ -1581,6 +1612,41 @@
 
       function isWordLive(word, time) {
         return time >= Number(word.start) && time <= Number(word.end);
+      }
+
+      function wordMotionStyle(word, time) {
+        if (!word || word.motion === "none") return { transform: "" };
+
+        const anticipation = 1 / 30;
+        const popDuration = 0.14;
+        const settleDuration = 0.1;
+        const start = Number(word.start);
+        const end = Number(word.end);
+
+        if (time >= start - anticipation && time < start) {
+          const progress = clamp((time - (start - anticipation)) / anticipation, 0, 1);
+          const y = 2 * (1 - progress);
+          return {
+            transform: `translateY(${y.toFixed(2)}px)`
+          };
+        }
+
+        if (time < start || time > end) return { transform: "" };
+
+        const up = easeOutCubic(clamp((time - start) / popDuration, 0, 1));
+        const downStart = Math.max(start + popDuration, end - settleDuration);
+        const down = time > downStart ? clamp((time - downStart) / settleDuration, 0, 1) : 0;
+        const intensity = up * (1 - down);
+        const y = -6 * intensity;
+
+        return {
+          transform: `translateY(${y.toFixed(2)}px)`
+        };
+      }
+
+      function easeOutCubic(value) {
+        const t = clamp(value, 0, 1);
+        return 1 - Math.pow(1 - t, 3);
       }
 
       function hasTimingWarning(cue, word) {

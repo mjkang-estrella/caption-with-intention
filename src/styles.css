@@ -331,7 +331,8 @@
       display: inline-block;
       margin: 0 2px;
       transform-origin: center bottom;
-      transition: color 140ms ease, transform 140ms ease, font-size 140ms ease, font-variation-settings 140ms ease;
+      transition: color 90ms linear, font-size 140ms ease, font-variation-settings 140ms ease;
+      will-change: transform;
     }
 
     .caption-word.spoken {
@@ -339,9 +340,7 @@
     }
 
     .caption-word.intent {
-      color: var(--yellow);
-      transform: translateY(-4px) scale(1.13);
-      font-weight: 980;
+      z-index: 1;
     }
 
     .caption-word.off-camera {

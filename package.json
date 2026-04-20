@@ -2,7 +2,7 @@
   "name": "caption-with-intent",
   "private": true,
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "rm -f dist/app.js && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
