@@ -36,7 +36,7 @@
       --surface-row-label: #100e0c;
       --surface-inspector: #0c0b0a;
       --surface-preview-control: rgba(5, 5, 4, 0.78);
-      --surface-caption: rgba(0, 0, 0, 0.8);
+      --surface-caption: rgba(0, 0, 0, 0.9);
       --media-border: #3a3025;
       --media-border-strong: #705f4b;
       --primary-button-ink: #160804;
@@ -203,9 +203,7 @@
       border-radius: 999px;
       background: var(--panel);
       color: var(--ink-soft);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
+      display: inline-block;
       gap: 8px;
       padding: 0 13px;
     }
@@ -308,15 +306,45 @@
       position: absolute;
       left: 5.5%;
       right: 5.5%;
-      bottom: 8.8%;
+      bottom: 0;
+      height: 20%;
       text-align: center;
       z-index: 2;
       font-family: var(--font-cwi);
+      pointer-events: none;
+    }
+
+    .caption-stack {
+      position: absolute;
+      inset: 1px 0 0;
+      display: grid;
+      grid-template-rows: 25% 12.5% 25% 37.5%;
+      align-items: center;
+      justify-items: center;
+      width: 100%;
+      height: calc(100% - 1px);
+    }
+
+    .caption-stack.one-line .caption-line {
+      grid-row: 3;
+    }
+
+    .caption-stack.two-lines .caption-line:first-child {
+      grid-row: 1;
+    }
+
+    .caption-stack.two-lines .caption-line:last-child {
+      grid-row: 3;
     }
 
     .caption-line {
-      display: inline-block;
-      padding: var(--caption-box-padding-y, 0.74em) var(--caption-box-padding-x, 2.22em);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.28em;
+      max-width: 100%;
+      max-height: 100%;
+      padding: var(--caption-box-padding-y, 0.42em) var(--caption-box-padding-x, 2.22em);
       background: var(--surface-caption);
       box-decoration-break: clone;
       -webkit-box-decoration-break: clone;

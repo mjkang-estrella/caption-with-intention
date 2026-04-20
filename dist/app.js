@@ -32,10 +32,11 @@ const INSPECTOR_COLUMN_MIN = 300;
 const INSPECTOR_COLUMN_DEFAULT = 360;
 const INSPECTOR_STACK_MIN = 220;
 const CENTER_STAGE_MIN = 360;
-const AE_CAPTION_FONT_RATIO = 27 / 1080;
-const AE_WORD_RISE_RATIO = 0.25;
-const AE_BOX_VERTICAL_PADDING_EM = 20 / 27;
-const AE_BOX_HORIZONTAL_PADDING_EM = 60 / 27;
+const CWI_CAPTION_FONT_RATIO = 27 / 1080;
+const CWI_CAPTION_MIN_FONT_PX = 11;
+const CWI_WORD_RISE_RATIO = 0.25;
+const CWI_BOX_VERTICAL_PADDING_EM = 0.42;
+const CWI_BOX_HORIZONTAL_PADDING_EM = 60 / 27;
 const AE_NON_DIALOGUE_COLOR = "#5E82ED";
 const AUDIO_WAVEFORM = [
     0.003, 0.003, 0.005, 0.003, 0.003, 0.003, 0.003, 0.003, 0.005, 0.003, 0.011, 0.174, 0.17, 0.22, 0.092, 0.04, 0.171, 0.129, 0.036, 0.013, 0.228, 0.194, 0.116, 0.028,
@@ -1477,7 +1478,7 @@ function createSampleProject() {
         const mediaTime = currentMediaTime();
         const cue = state.cwi.cues.find((item) => isCueLive(item, mediaTime));
         if (!cue) {
-            els.captionSafe.innerHTML = '<div class="caption-line caption-empty">.</div>';
+            els.captionSafe.innerHTML = '<div class="caption-stack one-line"><div class="caption-line caption-empty">.</div></div>';
             return;
         }
         if (cue.type === "sound") {
@@ -1492,31 +1493,37 @@ function createSampleProject() {
         const color = speaker ? speaker.color : "var(--cyan)";
         const words = cue.words && cue.words.length ? cue.words : wordsFromCueText(cue);
         const activeWord = currentWordForCue(cue, mediaTime);
-        const html = words.map((word) => {
-            const transform = aeWordMotionTransform(word, mediaTime);
-            const spoken = mediaTime >= Number(word.start);
-            const style = [
-                spoken ? `color: ${color}` : "",
-                transform ? `transform: ${transform}` : ""
-            ].filter(Boolean).join("; ");
-            const classes = ["caption-word"];
-            if (spoken)
-                classes.push("spoken");
-            if (activeWord && word.id === activeWord.id && transform)
-                classes.push("intent");
-            if (cue.offCamera)
-                classes.push("off-camera");
-            return `<span class="${classes.join(" ")}" style="${escapeAttr(style)}">${escapeHtml(word.text)}</span>`;
-        }).join(" ");
-        els.captionSafe.innerHTML = `<div class="caption-line" style="${escapeAttr(captionLineStyle())}">${html}</div>`;
+        const layout = captionLayoutForItems(words.map((word) => ({ text: word.text, word })));
+        const linesHtml = layout.lines.map((line) => {
+            const wordsHtml = line.map((item) => {
+                const word = item.word;
+                const transform = aeWordMotionTransform(word, mediaTime);
+                const spoken = mediaTime >= Number(word.start);
+                const style = [
+                    spoken ? `color: ${color}` : "",
+                    transform ? `transform: ${transform}` : ""
+                ].filter(Boolean).join("; ");
+                const classes = ["caption-word"];
+                if (spoken)
+                    classes.push("spoken");
+                if (activeWord && word.id === activeWord.id && transform)
+                    classes.push("intent");
+                if (cue.offCamera)
+                    classes.push("off-camera");
+                return `<span class="${classes.join(" ")}" style="${escapeAttr(style)}">${escapeHtml(word.text)}</span>`;
+            }).join(" ");
+            return `<div class="caption-line" style="${escapeAttr(captionLineStyle(layout.fontSize))}">${wordsHtml}</div>`;
+        }).join("");
+        els.captionSafe.innerHTML = renderCaptionStack(linesHtml, layout);
     }
     function renderNonDialogueCue(cue, text) {
         const color = cue.type === "sound" ? AE_NON_DIALOGUE_COLOR : "var(--ink)";
-        els.captionSafe.innerHTML = `
-          <div class="caption-line" style="${escapeAttr(captionLineStyle())}">
-            <span class="caption-word" style="color: ${escapeAttr(color)}">${escapeHtml(text)}</span>
-          </div>
-        `;
+        const layout = captionLayoutForItems(captionTextItems(text));
+        const linesHtml = layout.lines.map((line) => {
+            const wordsHtml = line.map((item) => `<span class="caption-word" style="color: ${escapeAttr(color)}">${escapeHtml(item.text)}</span>`).join(" ");
+            return `<div class="caption-line" style="${escapeAttr(captionLineStyle(layout.fontSize))}">${wordsHtml}</div>`;
+        }).join("");
+        els.captionSafe.innerHTML = renderCaptionStack(linesHtml, layout);
     }
     function renderTimeReadout() {
         els.timeReadout.textContent = `${formatTime(currentMediaTime())} / ${formatTime(getDuration())}`;
@@ -1739,6 +1746,10 @@ function createSampleProject() {
         hasDialogue && hasSound
             ? pass("Cue coverage", "Dialogue and AE-template sound effect cue types are represented.")
             : fail("Cue coverage", "The project should include the dialogue and sound-effect cues used by the After Effects template.");
+        const overflowingCues = project.cues.filter((cue) => captionLayoutForCue(cue).overflow);
+        overflowingCues.length
+            ? fail("Caption work area", `These cues exceed the two-line lower-20% work area: ${overflowingCues.slice(0, 3).map((cue) => cue.id).join(", ")}.`)
+            : pass("Caption work area", "Rendered caption boxes fit within the lower 20% work area with side and bottom safety margins.");
         return checks;
     }
     function findMissingImportedFields(raw) {
@@ -1848,7 +1859,7 @@ function createSampleProject() {
         if (end <= start || time < start || time > end)
             return "";
         const fontSize = captionFontSizePx();
-        const rise = fontSize * AE_WORD_RISE_RATIO;
+        const rise = fontSize * CWI_WORD_RISE_RATIO;
         const progress = clamp((time - start) / (end - start), 0, 1);
         const y = -rise * Math.sin(Math.PI * progress);
         return `translateY(${y.toFixed(2)}px)`;
@@ -1875,15 +1886,91 @@ function createSampleProject() {
     }
     function captionFontSizePx() {
         const frameHeight = document.querySelector(".phone-frame").clientHeight || 560;
-        const rawSize = frameHeight * AE_CAPTION_FONT_RATIO;
-        return Math.round(clamp(rawSize, 11, 27));
+        const rawSize = frameHeight * CWI_CAPTION_FONT_RATIO;
+        return Math.round(clamp(rawSize, CWI_CAPTION_MIN_FONT_PX, 27));
     }
-    function captionLineStyle() {
+    function captionLineStyle(fontSize = captionFontSizePx()) {
         return [
-            `font-size: ${captionFontSizePx()}px`,
-            `--caption-box-padding-y: ${AE_BOX_VERTICAL_PADDING_EM}em`,
-            `--caption-box-padding-x: ${AE_BOX_HORIZONTAL_PADDING_EM}em`
+            `font-size: ${fontSize}px`,
+            `--caption-box-padding-y: ${CWI_BOX_VERTICAL_PADDING_EM}em`,
+            `--caption-box-padding-x: ${CWI_BOX_HORIZONTAL_PADDING_EM}em`
         ].join("; ");
+    }
+    function captionLayoutForItems(items) {
+        const safeWidth = captionSafeWidth();
+        const baseFontSize = captionFontSizePx();
+        for (let fontSize = baseFontSize; fontSize >= CWI_CAPTION_MIN_FONT_PX; fontSize -= 1) {
+            const single = captionLineWidth(items, fontSize);
+            if (single <= safeWidth)
+                return { lines: [items], fontSize, overflow: false };
+            const split = bestTwoLineCaptionSplit(items, fontSize);
+            if (split.lines.length === 2 && split.width <= safeWidth) {
+                return { lines: split.lines, fontSize, overflow: false };
+            }
+        }
+        const fallback = bestTwoLineCaptionSplit(items, CWI_CAPTION_MIN_FONT_PX);
+        return {
+            lines: fallback.lines,
+            fontSize: CWI_CAPTION_MIN_FONT_PX,
+            overflow: fallback.width > safeWidth
+        };
+    }
+    function bestTwoLineCaptionSplit(items, fontSize) {
+        if (items.length <= 1) {
+            return { lines: [items], width: captionLineWidth(items, fontSize) };
+        }
+        let best = null;
+        for (let splitIndex = 1; splitIndex < items.length; splitIndex += 1) {
+            const lines = [items.slice(0, splitIndex), items.slice(splitIndex)];
+            const width = Math.max(captionLineWidth(lines[0], fontSize), captionLineWidth(lines[1], fontSize));
+            if (!best || width < best.width)
+                best = { lines, width };
+        }
+        return best;
+    }
+    function captionLineWidth(items, fontSize) {
+        const text = items.map((item) => item.text).join(" ");
+        const textWidth = measureCaptionText(text, fontSize);
+        return textWidth + fontSize * CWI_BOX_HORIZONTAL_PADDING_EM * 2;
+    }
+    function measureCaptionText(text, fontSize) {
+        const context = captionMeasureContext();
+        if (!context)
+            return String(text || "").length * fontSize * 0.55;
+        const family = els.captionSafe ? getComputedStyle(els.captionSafe).fontFamily : "sans-serif";
+        context.font = `400 ${fontSize}px ${family}`;
+        return context.measureText(String(text || "")).width;
+    }
+    function captionMeasureContext() {
+        if (!els.captionMeasureCanvas) {
+            els.captionMeasureCanvas = document.createElement("canvas");
+        }
+        return els.captionMeasureCanvas.getContext("2d");
+    }
+    function captionSafeWidth() {
+        const safeWidth = els.captionSafe ? els.captionSafe.clientWidth : 0;
+        if (safeWidth > 0)
+            return safeWidth;
+        const frame = document.querySelector(".phone-frame");
+        return frame ? frame.clientWidth * 0.89 : 960;
+    }
+    function captionTextItems(text) {
+        return String(text || "").split(/\s+/).filter(Boolean).map((part) => ({ text: part }));
+    }
+    function renderCaptionStack(linesHtml, layout) {
+        const lineClass = layout.lines.length > 1 ? "two-lines" : "one-line";
+        const overflow = layout.overflow ? " caption-overflow" : "";
+        return `<div class="caption-stack ${lineClass}${overflow}" data-caption-overflow="${layout.overflow}">${linesHtml}</div>`;
+    }
+    function captionLayoutForCue(cue) {
+        if (!cue)
+            return { lines: [], fontSize: captionFontSizePx(), overflow: false };
+        if (cue.type === "sound")
+            return captionLayoutForItems(captionTextItems(`[${stripCueDecorators(cue.text)}]`));
+        if (cue.type === "music")
+            return captionLayoutForItems(captionTextItems(`\u266a ${stripCueDecorators(cue.text)} \u266a`));
+        const words = cue.words && cue.words.length ? cue.words : wordsFromCueText(cue);
+        return captionLayoutForItems(words.map((word) => ({ text: word.text, word })));
     }
     function volumeToPercent(volumePercent) {
         return 3 + (clamp(Number(volumePercent) || 0, 0, 100) / 100) * 9;
