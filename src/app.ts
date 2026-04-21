@@ -14,7 +14,8 @@
         inspectorSize: INSPECTOR_COLUMN_DEFAULT,
         speakerSelectorOpen: false,
         activeSpeakerOptionId: "",
-        previewTimeOverride: null
+        previewTimeOverride: null,
+        statusMessage: ""
       };
 
       const els: Record<string, any> = {};
@@ -38,6 +39,12 @@
         els.mediaBoundary = document.querySelector(".project-meta .small-pill");
         els.topActions = document.querySelector(".top-actions");
         els.tabs = Array.from(document.querySelectorAll(".tab"));
+        els.statusRegion = document.createElement("div");
+        els.statusRegion.className = "visually-hidden";
+        els.statusRegion.setAttribute("role", "status");
+        els.statusRegion.setAttribute("aria-live", "polite");
+        els.statusRegion.setAttribute("aria-atomic", "true");
+        document.body.appendChild(els.statusRegion);
 
         els.video.src = DEFAULT_MEDIA_SRC;
         els.video.muted = false;
@@ -242,6 +249,24 @@
           state.selectedWordId = segment.dataset.wordId || "";
           renderAll();
         });
+
+        els.timelineGrid.addEventListener("keydown", (event) => {
+          const scroller = event.target.closest(".timeline-scroll");
+          if (!scroller) return;
+
+          const duration = getDuration();
+          let nextTime = currentMediaTime();
+          if (event.key === "ArrowLeft") nextTime -= event.shiftKey ? 1 : 0.25;
+          else if (event.key === "ArrowRight") nextTime += event.shiftKey ? 1 : 0.25;
+          else if (event.key === "Home") nextTime = 0;
+          else if (event.key === "End") nextTime = duration;
+          else return;
+
+          event.preventDefault();
+          seekPreviewToTime(nextTime);
+          renderPlayback();
+          announceStatus(`Preview time ${formatTime(currentMediaTime())}`);
+        });
       }
 
       function setupInspectorEvents() {
@@ -428,12 +453,14 @@
             state.activeTab = "qa";
             state.importError = "";
             state.importWarnings = [];
+            announceStatus(`Imported ${subtitleCues.length} caption cues from ${file.name}.`);
             renderAll();
             await applyLocalVolumeAnalysis();
           } catch (error) {
             state.importError = error.message || "The selected caption file could not be imported.";
             state.importWarnings = [];
             state.activeTab = "qa";
+            announceStatus(state.importError);
             renderAll();
           } finally {
             event.target.value = "";
@@ -456,11 +483,13 @@
             state.selectedWordId = "";
             state.activeTab = "qa";
             state.importError = "";
+            announceStatus(`Imported CWI JSON with ${state.cwi.cues.length} cues.`);
             renderAll();
           } catch (error) {
             state.importError = error.message || "The selected JSON file could not be imported.";
             state.importWarnings = [];
             state.activeTab = "qa";
+            announceStatus(state.importError);
             renderAll();
           } finally {
             event.target.value = "";
@@ -622,11 +651,27 @@
       async function applyLocalVolumeAnalysis() {
         if (!state.mediaFile) {
           addReviewNote("Audio analysis skipped because no uploaded media file is available; neutral volume values were kept.");
+          announceStatus("Audio analysis skipped. Neutral volume values were kept.");
+          renderAll();
+          return;
+        }
+
+        if (state.mediaFile.size > 120 * 1024 * 1024) {
+          addReviewNote("Audio analysis skipped because the uploaded media is over 120 MB; neutral volume values were kept.");
+          announceStatus("Audio analysis skipped for large media. Neutral volume values were kept.");
+          renderAll();
+          return;
+        }
+
+        if (getDuration() > 180) {
+          addReviewNote("Audio analysis skipped because the uploaded media is longer than 3 minutes; neutral volume values were kept.");
+          announceStatus("Audio analysis skipped for long media. Neutral volume values were kept.");
           renderAll();
           return;
         }
 
         try {
+          announceStatus("Analyzing local audio for initial volume emphasis.");
           const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
           if (!AudioContextClass) throw new Error("AudioContext is unavailable in this browser.");
           const audioContext = new AudioContextClass();
@@ -635,9 +680,11 @@
           const analysis = analyzeCueVolumes(audioBuffer, state.cwi.cues);
           applyCueVolumeAnalysis(analysis);
           addReviewNote(`Local audio analysis set initial volume emphasis for ${analysis.length} cues.`);
+          announceStatus(`Audio analysis set initial volume emphasis for ${analysis.length} cues.`);
           if (typeof audioContext.close === "function") audioContext.close();
         } catch (error) {
           addReviewNote(`Audio analysis failed; neutral volume values were kept. ${error.message || error}`);
+          announceStatus("Audio analysis failed. Neutral volume values were kept.");
         }
 
         renderAll();
@@ -774,6 +821,12 @@
           ? state.cwi.project.mediaName || "Browser media"
           : `${state.cwi.project.title || "Untitled CWI"}${mediaExtensionLabel()}`;
         els.mediaBoundary.textContent = state.mediaObjectUrl ? "Browser-only Media" : "Local Sample";
+        if (els.statusRegion) els.statusRegion.textContent = state.statusMessage || "";
+      }
+
+      function announceStatus(message) {
+        state.statusMessage = String(message || "");
+        if (els.statusRegion) els.statusRegion.textContent = state.statusMessage;
       }
 
       function renderTabs() {
@@ -1141,8 +1194,10 @@
 
       function renderQaPanel() {
         const checks = validateProject(state.cwi);
+        const failedCount = checks.filter((check) => check.status === "fail").length;
         els.sideContent.innerHTML = `
-          <div class="panel-list">
+          <div class="panel-list" aria-live="polite" aria-label="QA results">
+            <div class="visually-hidden">${failedCount ? `${failedCount} QA checks need review.` : "All QA checks passed."}</div>
             ${checks.map((check) => `
               <div class="qa-card ${check.status}">
                 <div class="qa-kicker">${check.status === "pass" ? "Pass" : "Needs review"}</div>
@@ -1471,6 +1526,8 @@
       }
 
       function renderTimeline() {
+        const scroller = els.timelineGrid.querySelector(".timeline-scroll");
+        const previousScrollLeft = scroller ? scroller.scrollLeft : 0;
         const duration = getDuration();
         const contentWidth = Math.max(760, Math.ceil(duration * PX_PER_SECOND) + 40);
         const ticks = [];
@@ -1484,7 +1541,7 @@
           <div class="row-label" style="grid-row: 2">Audio</div>
           <div class="row-label" style="grid-row: 3">Words</div>
           <div class="row-label" style="grid-row: 4">CWI</div>
-          <div class="timeline-scroll">
+          <div class="timeline-scroll" tabindex="0" role="slider" aria-label="Timeline seek control" aria-valuemin="0" aria-valuemax="${Math.round(duration)}" aria-valuenow="${currentMediaTime().toFixed(2)}" aria-valuetext="${formatTime(currentMediaTime())}">
             <div class="playhead" aria-hidden="true" style="left: ${currentMediaTime() * PX_PER_SECOND}px"></div>
             <div class="ruler" style="min-width: ${contentWidth}px">
               ${ticks.map((tick) => `<span style="left: ${tick * PX_PER_SECOND}px">${formatTime(tick)}</span>`).join("")}
@@ -1500,6 +1557,8 @@
             </div>
           </div>
         `;
+        const nextScroller = els.timelineGrid.querySelector(".timeline-scroll");
+        if (nextScroller) nextScroller.scrollLeft = previousScrollLeft;
       }
 
       function renderWaveform() {
@@ -1544,10 +1603,26 @@
         const current = getCurrentCueAndWord();
         const key = `${current.cueId || ""}:${current.wordId || ""}`;
         if (key !== state.playbackKey) {
+          const previousCueId = state.playbackKey.split(":")[0];
           state.playbackKey = key;
-          renderTimeline();
-          if (state.activeTab === "transcript") renderSideContent();
+          updateTimelineActiveStates(current);
+          if (state.activeTab === "transcript") {
+            const previousCue = previousCueId ? getCue(previousCueId) : null;
+            const cue = current.cueId ? getCue(current.cueId) : null;
+            if (previousCue) refreshTranscriptCueRow(previousCue);
+            if (cue && cue !== previousCue) refreshTranscriptCueRow(cue);
+          }
         }
+      }
+
+      function updateTimelineActiveStates(current = getCurrentCueAndWord()) {
+        els.timelineGrid.querySelectorAll(".segment").forEach((segment) => {
+          const active = (segment.dataset.wordId && segment.dataset.wordId === current.wordId) ||
+            (!segment.dataset.wordId && segment.dataset.cueId && segment.dataset.cueId === current.cueId) ||
+            (segment.dataset.cueId && segment.dataset.cueId === state.selectedCueId) ||
+            (segment.dataset.wordId && segment.dataset.wordId === state.selectedWordId);
+          segment.classList.toggle("active", Boolean(active));
+        });
       }
 
       function renderCaptionOverlay() {
@@ -1619,6 +1694,11 @@
       function updatePlayhead() {
         const playhead = els.timelineGrid.querySelector(".playhead");
         if (playhead) playhead.style.left = `${currentMediaTime() * PX_PER_SECOND}px`;
+        const scroller = els.timelineGrid.querySelector(".timeline-scroll");
+        if (scroller) {
+          scroller.setAttribute("aria-valuenow", currentMediaTime().toFixed(2));
+          scroller.setAttribute("aria-valuetext", formatTime(currentMediaTime()));
+        }
       }
 
       function setPlayButton() {

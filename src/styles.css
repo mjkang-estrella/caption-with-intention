@@ -42,6 +42,9 @@
       --primary-button-ink: #160804;
       --safe-guide: rgba(244, 240, 231, 0.14);
       --caption-idle: #dddddd;
+      --status-pass-bg: rgba(24, 70, 38, 0.34);
+      --status-pass-border: rgba(71, 235, 112, 0.45);
+      --status-pass-kicker: #8ef0a7;
       --status-fail-bg: rgba(96, 24, 20, 0.52);
       --status-fail-border: rgba(255, 147, 124, 0.72);
       --status-fail-kicker: #ffb4a8;
@@ -91,6 +94,7 @@
     textarea:focus-visible,
     .word:focus-visible,
     .segment:focus-visible,
+    .timeline-scroll:focus-visible,
     .phone-frame:focus-visible {
       outline: 2px solid var(--focus-ring);
       outline-offset: 3px;
@@ -350,6 +354,13 @@
       line-height: 1.14;
       text-transform: none;
       white-space: nowrap;
+      overflow: visible;
+    }
+
+    .caption-overflow .caption-line {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-wrap: balance;
     }
 
     .caption-word {
@@ -454,6 +465,10 @@
       background:
         repeating-linear-gradient(90deg, transparent 0, transparent 89px, rgba(244, 240, 231, 0.06) 90px),
         var(--surface-grid);
+    }
+
+    .timeline-scroll:focus-visible {
+      z-index: 8;
     }
 
     .timeline-corner {
@@ -1313,7 +1328,12 @@
     }
 
     .qa-card.pass {
-      border-color: rgba(71, 235, 112, 0.45);
+      border-color: var(--status-pass-border);
+      background: var(--status-pass-bg);
+    }
+
+    .qa-card.pass .qa-kicker {
+      color: var(--status-pass-kicker);
     }
 
     .qa-card.fail {
