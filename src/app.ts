@@ -7,6 +7,7 @@
         selectedWordId: "",
         selectedSpeakerId: "",
         mediaObjectUrl: "",
+        mediaFile: null,
         importError: "",
         importWarnings: [],
         playbackKey: "",
@@ -55,21 +56,27 @@
       function setupTopActions() {
         els.topActions.innerHTML = [
           '<button type="button" class="text-button" id="mediaButton">Media</button>',
-          '<button type="button" class="text-button" id="importJsonButton">Import JSON</button>',
+          '<button type="button" class="text-button" id="captionButton">Import Captions</button>',
+          '<button type="button" class="text-button" id="importJsonButton">Import CWI JSON</button>',
           '<button type="button" class="primary-button" id="exportJsonButton">Export JSON</button>',
           '<input class="visually-hidden" id="mediaInput" type="file" accept="video/*,audio/*">',
+          '<input class="visually-hidden" id="captionInput" type="file" accept=".srt,.vtt,text/vtt,text/plain">',
           '<input class="visually-hidden" id="jsonInput" type="file" accept="application/json,.json">'
         ].join("");
 
         els.mediaInput = document.getElementById("mediaInput");
+        els.captionInput = document.getElementById("captionInput");
         els.jsonInput = document.getElementById("jsonInput");
         els.mediaButton = document.getElementById("mediaButton");
+        els.captionButton = document.getElementById("captionButton");
         els.importJsonButton = document.getElementById("importJsonButton");
         els.exportJsonButton = document.getElementById("exportJsonButton");
 
         els.mediaButton.addEventListener("click", () => els.mediaInput.click());
+        els.captionButton.addEventListener("click", () => els.captionInput.click());
         els.importJsonButton.addEventListener("click", () => els.jsonInput.click());
         els.mediaInput.addEventListener("change", handleMediaInput);
+        els.captionInput.addEventListener("change", handleCaptionInput);
         els.jsonInput.addEventListener("change", handleJsonInput);
         els.exportJsonButton.addEventListener("click", exportProjectJson);
       }
@@ -148,6 +155,12 @@
           if (addCue) {
             addCueToTranscript();
             renderAll();
+            return;
+          }
+
+          const importCaptions = event.target.closest("[data-import-captions]");
+          if (importCaptions) {
+            els.captionInput.click();
             return;
           }
 
@@ -382,11 +395,51 @@
 
         if (state.mediaObjectUrl) URL.revokeObjectURL(state.mediaObjectUrl);
         state.mediaObjectUrl = URL.createObjectURL(file);
-        state.cwi.project.mediaName = file.name;
+        state.mediaFile = file;
+        state.cwi = createEmptyProjectForMedia(file);
+        state.selectedCueId = "";
+        state.selectedWordId = "";
+        state.selectedSpeakerId = "";
+        state.activeTab = "transcript";
+        state.previewTimeOverride = null;
         els.video.src = state.mediaObjectUrl;
         els.video.load();
         state.importError = "";
+        state.importWarnings = [];
         renderAll();
+        event.target.value = "";
+      }
+
+      function handleCaptionInput(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const subtitleText = String(reader.result || "");
+            const subtitleCues = parseSubtitleFile(subtitleText, file.name);
+            if (!subtitleCues.length) throw new Error("No subtitle cues were found in the selected file.");
+
+            const project = createProjectFromSubtitleCues(subtitleCues, file.name);
+            state.cwi = project;
+            state.selectedCueId = state.cwi.cues[0] ? state.cwi.cues[0].id : "";
+            state.selectedWordId = "";
+            state.activeTab = "qa";
+            state.importError = "";
+            state.importWarnings = [];
+            renderAll();
+            await applyLocalVolumeAnalysis();
+          } catch (error) {
+            state.importError = error.message || "The selected caption file could not be imported.";
+            state.importWarnings = [];
+            state.activeTab = "qa";
+            renderAll();
+          } finally {
+            event.target.value = "";
+          }
+        };
+        reader.readAsText(file);
       }
 
       function handleJsonInput(event) {
@@ -414,6 +467,245 @@
           }
         };
         reader.readAsText(file);
+      }
+
+      function createEmptyProjectForMedia(file) {
+        return {
+          project: {
+            id: `cwi-${slugify(file.name || "local-media")}`,
+            title: fileNameStem(file.name || "Local Media"),
+            aspectRatio: state.cwi.project.aspectRatio || "16:9",
+            mediaName: file.name || "Local media",
+            duration: Number.isFinite(els.video.duration) && els.video.duration > 0 ? roundTime(els.video.duration) : 0
+          },
+          speakers: [createUnknownSpeaker()],
+          cues: [],
+          review: {
+            notes: ["Media is loaded locally. Import an SRT or WebVTT caption file to create editable CWI cues."],
+            validationStatus: "needs-captions"
+          }
+        };
+      }
+
+      function createUnknownSpeaker() {
+        return {
+          id: "speaker-unknown",
+          name: "Unknown Speaker",
+          role: "supporting",
+          color: "#5E82ED",
+          defaultOffCamera: false
+        };
+      }
+
+      function parseSubtitleFile(text, fileName) {
+        const trimmed = String(text || "").replace(/^\uFEFF/, "").trim();
+        if (!trimmed) return [];
+        if (/^\s*WEBVTT\b/i.test(trimmed) || /\.vtt$/i.test(fileName || "")) return parseWebVtt(trimmed);
+        return parseSrt(trimmed);
+      }
+
+      function parseSrt(text) {
+        return String(text || "")
+          .replace(/\r/g, "")
+          .split(/\n{2,}/)
+          .flatMap((block) => {
+            const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+            if (!lines.length) return [];
+            if (/^\d+$/.test(lines[0])) lines.shift();
+            const timeIndex = lines.findIndex((line) => line.includes("-->"));
+            if (timeIndex === -1) return [];
+            const times = parseSubtitleTiming(lines[timeIndex]);
+            if (!times) return [];
+            const cueText = cleanSubtitleText(lines.slice(timeIndex + 1).join(" "));
+            if (!cueText) return [];
+            return [{ ...times, text: cueText }];
+          });
+      }
+
+      function parseWebVtt(text) {
+        const body = String(text || "").replace(/^\s*WEBVTT[^\n]*(\n|$)/i, "");
+        return body
+          .replace(/\r/g, "")
+          .split(/\n{2,}/)
+          .flatMap((block) => {
+            let lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+            if (!lines.length || /^WEBVTT\b/i.test(lines[0]) || /^(NOTE|STYLE|REGION)\b/i.test(lines[0])) return [];
+            let timeIndex = lines.findIndex((line) => line.includes("-->"));
+            if (timeIndex === -1) return [];
+            const times = parseSubtitleTiming(lines[timeIndex]);
+            if (!times) return [];
+            const cueText = cleanSubtitleText(lines.slice(timeIndex + 1).join(" "));
+            if (!cueText) return [];
+            return [{ ...times, text: cueText }];
+          });
+      }
+
+      function parseSubtitleTiming(line) {
+        const parts = String(line || "").split("-->");
+        if (parts.length < 2) return null;
+        const start = parseSubtitleTime(parts[0].trim());
+        const end = parseSubtitleTime(parts[1].trim().split(/\s+/)[0]);
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+        return { start: roundTime(start), end: roundTime(end) };
+      }
+
+      function parseSubtitleTime(value) {
+        const normalized = String(value || "").replace(",", ".");
+        const parts = normalized.split(":");
+        if (parts.length < 2 || parts.length > 3) return NaN;
+        const seconds = Number(parts.pop());
+        const minutes = Number(parts.pop());
+        const hours = parts.length ? Number(parts.pop()) : 0;
+        if (![hours, minutes, seconds].every(Number.isFinite)) return NaN;
+        return hours * 3600 + minutes * 60 + seconds;
+      }
+
+      function cleanSubtitleText(text) {
+        return decodeHtmlEntities(String(text || "")
+          .replace(/<[^>]+>/g, "")
+          .replace(/\{[^}]+\}/g, "")
+          .replace(/\s+/g, " ")
+          .trim());
+      }
+
+      function decodeHtmlEntities(text) {
+        const textarea = document.createElement("textarea");
+        textarea.innerHTML = text;
+        return textarea.value;
+      }
+
+      function createProjectFromSubtitleCues(subtitleCues, captionFileName) {
+        const unknownSpeaker = createUnknownSpeaker();
+        const cues = subtitleCues.map((subtitleCue, index) => {
+          const cueType = cueTypeForSubtitleText(subtitleCue.text);
+          const text = stripCueDecorators(subtitleCue.text);
+          const cue = {
+            id: `cue-${index + 1}`,
+            type: cueType,
+            speakerId: cueType === "dialogue" ? unknownSpeaker.id : "",
+            start: subtitleCue.start,
+            end: subtitleCue.end,
+            text,
+            lineBreakAfterWordIds: [],
+            exception: false,
+            offCamera: false,
+            words: []
+          };
+          cue.words = buildWordsForCueText(cue, text);
+          return cue;
+        });
+
+        return {
+          project: {
+            id: `cwi-${slugify(fileNameStem(state.cwi.project.mediaName || captionFileName || "imported-media"))}`,
+            title: state.cwi.project.title || fileNameStem(captionFileName || "Imported Captions"),
+            aspectRatio: state.cwi.project.aspectRatio || "16:9",
+            mediaName: state.cwi.project.mediaName || "Local media",
+            duration: state.cwi.project.duration || getDuration()
+          },
+          speakers: [unknownSpeaker],
+          cues,
+          review: {
+            notes: [`Imported ${cues.length} cues from ${captionFileName || "caption file"}. Speaker identity is set to Unknown Speaker until manually corrected.`],
+            validationStatus: "unchecked"
+          }
+        };
+      }
+
+      function cueTypeForSubtitleText(text) {
+        const value = String(text || "").trim();
+        if (/^\[.+\]$/.test(value)) return "sound";
+        if (/^\u266a|^\u266b|\u266a$|\u266b$/.test(value)) return "music";
+        return "dialogue";
+      }
+
+      async function applyLocalVolumeAnalysis() {
+        if (!state.mediaFile) {
+          addReviewNote("Audio analysis skipped because no uploaded media file is available; neutral volume values were kept.");
+          renderAll();
+          return;
+        }
+
+        try {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          if (!AudioContextClass) throw new Error("AudioContext is unavailable in this browser.");
+          const audioContext = new AudioContextClass();
+          const arrayBuffer = await state.mediaFile.arrayBuffer();
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+          const analysis = analyzeCueVolumes(audioBuffer, state.cwi.cues);
+          applyCueVolumeAnalysis(analysis);
+          addReviewNote(`Local audio analysis set initial volume emphasis for ${analysis.length} cues.`);
+          if (typeof audioContext.close === "function") audioContext.close();
+        } catch (error) {
+          addReviewNote(`Audio analysis failed; neutral volume values were kept. ${error.message || error}`);
+        }
+
+        renderAll();
+      }
+
+      function analyzeCueVolumes(audioBuffer, cues) {
+        const rmsValues = cues.map((cue) => cueRms(audioBuffer, cue.start, cue.end));
+        const finiteValues = rmsValues.filter((value) => Number.isFinite(value));
+        if (!finiteValues.length) return cues.map((cue, index) => ({ cueId: cue.id, rms: rmsValues[index], volumePercent: 55 }));
+
+        const low = percentile(finiteValues, 0.1);
+        const high = percentile(finiteValues, 0.9);
+        const spread = Math.max(0.000001, high - low);
+        return cues.map((cue, index) => {
+          const rms = rmsValues[index];
+          const normalized = Number.isFinite(rms) ? clamp((rms - low) / spread, 0, 1) : 0.5;
+          return {
+            cueId: cue.id,
+            rms,
+            volumePercent: Math.round(20 + normalized * 70)
+          };
+        });
+      }
+
+      function cueRms(audioBuffer, start, end) {
+        const sampleRate = audioBuffer.sampleRate;
+        const startSample = Math.max(0, Math.floor(Number(start) * sampleRate));
+        const endSample = Math.min(audioBuffer.length, Math.ceil(Number(end) * sampleRate));
+        if (endSample <= startSample) return NaN;
+
+        let sum = 0;
+        let count = 0;
+        for (let channel = 0; channel < audioBuffer.numberOfChannels; channel += 1) {
+          const data = audioBuffer.getChannelData(channel);
+          for (let index = startSample; index < endSample; index += 1) {
+            const sample = data[index] || 0;
+            sum += sample * sample;
+            count += 1;
+          }
+        }
+        return count ? Math.sqrt(sum / count) : NaN;
+      }
+
+      function applyCueVolumeAnalysis(analysis) {
+        const byCueId = new Map(analysis.map((item) => [item.cueId, item]));
+        state.cwi.cues.forEach((cue) => {
+          const item: any = byCueId.get(cue.id);
+          if (!item) return;
+          (cue.words || []).forEach((word) => {
+            word.volumePercent = item.volumePercent;
+          });
+        });
+      }
+
+      function percentile(values, ratio) {
+        const sorted = [...values].sort((a, b) => a - b);
+        if (!sorted.length) return NaN;
+        const index = clamp((sorted.length - 1) * ratio, 0, sorted.length - 1);
+        const lower = Math.floor(index);
+        const upper = Math.ceil(index);
+        if (lower === upper) return sorted[lower];
+        return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower);
+      }
+
+      function addReviewNote(note) {
+        if (!state.cwi.review) state.cwi.review = { notes: [], validationStatus: "unchecked" };
+        state.cwi.review.notes = Array.isArray(state.cwi.review.notes) ? state.cwi.review.notes : [];
+        state.cwi.review.notes.push(String(note));
       }
 
       function exportProjectJson() {
@@ -524,6 +816,22 @@
 
       function renderTranscriptPanel() {
         const current = getCurrentCueAndWord();
+        if (!state.cwi.cues.length) {
+          els.sideContent.innerHTML = `
+            <div class="panel-list transcript-panel">
+              <div class="empty-card import-guidance">
+                <div class="empty-title">Import captions to start editing</div>
+                <p>The selected media is loaded locally. Import an SRT or WebVTT file to create editable CWI cues with approximate word timing and local volume emphasis.</p>
+                <button type="button" class="primary-button" data-import-captions>Import Captions</button>
+              </div>
+              <div class="panel-action-row transcript-actions">
+                <button type="button" class="primary-button" data-add-cue>Add cue</button>
+              </div>
+            </div>
+          `;
+          return;
+        }
+
         els.sideContent.innerHTML = `
           <div class="panel-list transcript-panel">
             <div class="transcript-list">
@@ -2048,6 +2356,11 @@
 
       function slugify(value) {
         return String(value || "cwi-project").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "cwi-project";
+      }
+
+      function fileNameStem(value) {
+        const name = String(value || "Local Media").split(/[\\/]/).pop() || "Local Media";
+        return name.replace(/\.[^.]+$/, "") || name;
       }
 
       function structuredCloneSafe(value) {

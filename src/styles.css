@@ -1214,6 +1214,21 @@
       line-height: 1.45;
     }
 
+    .import-guidance {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .import-guidance p {
+      margin: 0;
+    }
+
+    .empty-title {
+      color: var(--ink);
+      font-weight: 800;
+    }
+
     .speaker-edit-grid {
       display: grid;
       gap: 10px;
