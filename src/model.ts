@@ -111,13 +111,13 @@ function createSampleProject() {
         exception: false,
         offCamera: false,
         words: [
-          { id: "word-you-know", text: "You", start: 1.02, end: 1.16, volumePercent: 50, pitchWeight: 500, pitchWidth: 96 },
-          { id: "word-know", text: "know", start: 1.18, end: 1.34, volumePercent: 48, pitchWeight: 490, pitchWidth: 96 },
-          { id: "word-where", text: "where", start: 1.36, end: 1.58, volumePercent: 50, pitchWeight: 500, pitchWidth: 96 },
-          { id: "word-1640", text: "1640", start: 1.62, end: 2.12, volumePercent: 52, pitchWeight: 520, pitchWidth: 98 },
-          { id: "word-riverside", text: "Riverside", start: 2.16, end: 2.56, volumePercent: 52, pitchWeight: 520, pitchWidth: 98 },
-          { id: "word-drive", text: "Drive", start: 2.58, end: 2.78, volumePercent: 50, pitchWeight: 500, pitchWidth: 96 },
-          { id: "word-is", text: "is?", start: 2.8, end: 3.0, volumePercent: 48, pitchWeight: 490, pitchWidth: 94 }
+          { id: "word-you-know", text: "You", start: 1.02, end: 1.16, volumePercent: 50, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-know", text: "know", start: 1.18, end: 1.34, volumePercent: 48, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-where", text: "where", start: 1.36, end: 1.58, volumePercent: 50, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-1640", text: "1640", start: 1.62, end: 2.12, volumePercent: 52, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-riverside", text: "Riverside", start: 2.16, end: 2.56, volumePercent: 52, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-drive", text: "Drive", start: 2.58, end: 2.78, volumePercent: 50, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-is", text: "is?", start: 2.8, end: 3.0, volumePercent: 48, pitchWeight: 400, pitchWidth: 100 }
         ]
       },
       {
@@ -131,12 +131,12 @@ function createSampleProject() {
         exception: false,
         offCamera: false,
         words: [
-          { id: "word-are", text: "Are", start: 3.34, end: 3.48, volumePercent: 56, pitchWeight: 600, pitchWidth: 100 },
-          { id: "word-you-order", text: "you", start: 3.5, end: 3.66, volumePercent: 56, pitchWeight: 600, pitchWidth: 100 },
-          { id: "word-gonna-order", text: "gonna", start: 3.68, end: 3.94, volumePercent: 58, pitchWeight: 620, pitchWidth: 100 },
-          { id: "word-order", text: "order", start: 3.96, end: 4.22, volumePercent: 60, pitchWeight: 640, pitchWidth: 102 },
-          { id: "word-something-order", text: "something,", start: 4.24, end: 4.72, volumePercent: 64, pitchWeight: 680, pitchWidth: 104 },
-          { id: "word-kid", text: "kid?", start: 4.74, end: 5.08, volumePercent: 66, pitchWeight: 700, pitchWidth: 106 }
+          { id: "word-are", text: "Are", start: 3.34, end: 3.48, volumePercent: 56, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-you-order", text: "you", start: 3.5, end: 3.66, volumePercent: 56, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-gonna-order", text: "gonna", start: 3.68, end: 3.94, volumePercent: 58, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-order", text: "order", start: 3.96, end: 4.22, volumePercent: 60, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-something-order", text: "something,", start: 4.24, end: 4.72, volumePercent: 64, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-kid", text: "kid?", start: 4.74, end: 5.08, volumePercent: 66, pitchWeight: 400, pitchWidth: 100 }
         ]
       },
       {
@@ -150,11 +150,11 @@ function createSampleProject() {
         exception: false,
         offCamera: false,
         words: [
-          { id: "word-yeah", text: "Yeah,", start: 7.14, end: 7.4, volumePercent: 48, pitchWeight: 480, pitchWidth: 94 },
-          { id: "word-give-tab", text: "give", start: 8.38, end: 8.5, volumePercent: 50, pitchWeight: 500, pitchWidth: 94 },
-          { id: "word-me-tab", text: "me", start: 8.5, end: 8.9, volumePercent: 48, pitchWeight: 480, pitchWidth: 94 },
-          { id: "word-a-tab", text: "a", start: 8.9, end: 8.94, volumePercent: 46, pitchWeight: 460, pitchWidth: 92 },
-          { id: "word-tab", text: "Tab.", start: 8.94, end: 9.16, volumePercent: 54, pitchWeight: 540, pitchWidth: 98 }
+          { id: "word-yeah", text: "Yeah,", start: 7.14, end: 7.4, volumePercent: 48, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-give-tab", text: "give", start: 8.38, end: 8.5, volumePercent: 50, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-me-tab", text: "me", start: 8.5, end: 8.9, volumePercent: 48, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-a-tab", text: "a", start: 8.9, end: 8.94, volumePercent: 46, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-tab", text: "Tab.", start: 8.94, end: 9.16, volumePercent: 54, pitchWeight: 400, pitchWidth: 100 }
         ]
       },
       {
@@ -169,16 +169,16 @@ function createSampleProject() {
         offCamera: false,
         words: [
           { id: "word-tab-question", text: "Tab?", start: 9.2, end: 9.32, volumePercent: 68, pitchWeight: 720, pitchWidth: 106 },
-          { id: "word-i-cant", text: "I", start: 10.34, end: 10.43, volumePercent: 56, pitchWeight: 600, pitchWidth: 100 },
-          { id: "word-cant", text: "can't", start: 10.43, end: 10.62, volumePercent: 62, pitchWeight: 660, pitchWidth: 104 },
-          { id: "word-give-cant", text: "give", start: 10.62, end: 10.76, volumePercent: 58, pitchWeight: 620, pitchWidth: 100 },
-          { id: "word-you-cant", text: "you", start: 10.82, end: 10.97, volumePercent: 58, pitchWeight: 620, pitchWidth: 100 },
-          { id: "word-a-cant", text: "a", start: 11.03, end: 11.08, volumePercent: 54, pitchWeight: 560, pitchWidth: 98 },
-          { id: "word-tab-cant", text: "tab", start: 11.13, end: 11.22, volumePercent: 62, pitchWeight: 660, pitchWidth: 104 },
-          { id: "word-unless", text: "unless", start: 11.3, end: 11.73, volumePercent: 58, pitchWeight: 620, pitchWidth: 100 },
-          { id: "word-you-order-2", text: "you", start: 11.76, end: 11.9, volumePercent: 56, pitchWeight: 600, pitchWidth: 100 },
-          { id: "word-order-2", text: "order", start: 11.92, end: 12.32, volumePercent: 60, pitchWeight: 640, pitchWidth: 102 },
-          { id: "word-something-cant", text: "something.", start: 12.38, end: 13.5, volumePercent: 62, pitchWeight: 660, pitchWidth: 104 }
+          { id: "word-i-cant", text: "I", start: 10.34, end: 10.43, volumePercent: 56, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-cant", text: "can't", start: 10.43, end: 10.62, volumePercent: 62, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-give-cant", text: "give", start: 10.62, end: 10.76, volumePercent: 58, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-you-cant", text: "you", start: 10.82, end: 10.97, volumePercent: 58, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-a-cant", text: "a", start: 11.03, end: 11.08, volumePercent: 54, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-tab-cant", text: "tab", start: 11.13, end: 11.22, volumePercent: 62, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-unless", text: "unless", start: 11.3, end: 11.73, volumePercent: 58, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-you-order-2", text: "you", start: 11.76, end: 11.9, volumePercent: 56, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-order-2", text: "order", start: 11.92, end: 12.32, volumePercent: 60, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-something-cant", text: "something.", start: 12.38, end: 13.5, volumePercent: 62, pitchWeight: 400, pitchWidth: 100 }
         ]
       },
       {
@@ -192,12 +192,12 @@ function createSampleProject() {
         exception: false,
         offCamera: false,
         words: [
-          { id: "word-right", text: "Right,", start: 13.88, end: 14.08, volumePercent: 48, pitchWeight: 480, pitchWidth: 94 },
-          { id: "word-give-free", text: "give", start: 14.1, end: 14.24, volumePercent: 48, pitchWeight: 480, pitchWidth: 94 },
-          { id: "word-me-free", text: "me", start: 14.26, end: 14.38, volumePercent: 46, pitchWeight: 460, pitchWidth: 92 },
-          { id: "word-a-free", text: "a", start: 14.4, end: 14.5, volumePercent: 46, pitchWeight: 460, pitchWidth: 92 },
-          { id: "word-pepsi-free", text: "Pepsi", start: 14.52, end: 14.68, volumePercent: 52, pitchWeight: 520, pitchWidth: 96 },
-          { id: "word-free", text: "Free.", start: 14.7, end: 14.8, volumePercent: 52, pitchWeight: 520, pitchWidth: 96 }
+          { id: "word-right", text: "Right,", start: 13.88, end: 14.08, volumePercent: 48, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-give-free", text: "give", start: 14.1, end: 14.24, volumePercent: 48, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-me-free", text: "me", start: 14.26, end: 14.38, volumePercent: 46, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-a-free", text: "a", start: 14.4, end: 14.5, volumePercent: 46, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-pepsi-free", text: "Pepsi", start: 14.52, end: 14.68, volumePercent: 52, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-free", text: "Free.", start: 14.7, end: 14.8, volumePercent: 52, pitchWeight: 400, pitchWidth: 100 }
         ]
       },
       {
@@ -211,16 +211,16 @@ function createSampleProject() {
         exception: false,
         offCamera: false,
         words: [
-          { id: "word-you", text: "You", start: 14.99, end: 15.19, volumePercent: 58, pitchWeight: 590, pitchWidth: 98 },
-          { id: "word-want", text: "want", start: 15.19, end: 15.39, volumePercent: 58, pitchWeight: 590, pitchWidth: 98 },
-          { id: "word-a", text: "a", start: 15.39, end: 15.59, volumePercent: 56, pitchWeight: 570, pitchWidth: 98 },
-          { id: "word-pepsi", text: "Pepsi,", start: 15.59, end: 15.8, volumePercent: 62, pitchWeight: 640, pitchWidth: 102 },
-          { id: "word-pal", text: "pal?", start: 15.8, end: 16, volumePercent: 60, pitchWeight: 620, pitchWidth: 100 },
-          { id: "word-youre", text: "You're", start: 16, end: 16.2, volumePercent: 66, pitchWeight: 700, pitchWidth: 104 },
-          { id: "word-gonna", text: "gonna", start: 16.2, end: 16.4, volumePercent: 66, pitchWeight: 700, pitchWidth: 104 },
+          { id: "word-you", text: "You", start: 14.99, end: 15.19, volumePercent: 58, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-want", text: "want", start: 15.19, end: 15.39, volumePercent: 58, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-a", text: "a", start: 15.39, end: 15.59, volumePercent: 56, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-pepsi", text: "Pepsi,", start: 15.59, end: 15.8, volumePercent: 62, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-pal", text: "pal?", start: 15.8, end: 16, volumePercent: 60, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-youre", text: "You're", start: 16, end: 16.2, volumePercent: 66, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-gonna", text: "gonna", start: 16.2, end: 16.4, volumePercent: 66, pitchWeight: 400, pitchWidth: 100 },
           { id: "word-pay", text: "pay", start: 16.4, end: 16.6, volumePercent: 72, pitchWeight: 820, pitchWidth: 110 },
-          { id: "word-for", text: "for", start: 16.6, end: 16.8, volumePercent: 64, pitchWeight: 680, pitchWidth: 102 },
-          { id: "word-it-2", text: "it.", start: 16.8, end: 17, volumePercent: 64, pitchWeight: 680, pitchWidth: 102 }
+          { id: "word-for", text: "for", start: 16.6, end: 16.8, volumePercent: 64, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-it-2", text: "it.", start: 16.8, end: 17, volumePercent: 64, pitchWeight: 400, pitchWidth: 100 }
         ]
       },
       {
@@ -234,17 +234,17 @@ function createSampleProject() {
         exception: false,
         offCamera: false,
         words: [
-          { id: "word-look", text: "Look,", start: 17.76, end: 17.96, volumePercent: 50, pitchWeight: 500, pitchWidth: 94 },
-          { id: "word-just", text: "just", start: 17.96, end: 18.16, volumePercent: 50, pitchWeight: 500, pitchWidth: 94 },
-          { id: "word-give", text: "give", start: 18.16, end: 18.36, volumePercent: 52, pitchWeight: 510, pitchWidth: 96 },
-          { id: "word-me", text: "me", start: 18.36, end: 18.56, volumePercent: 50, pitchWeight: 500, pitchWidth: 94 },
-          { id: "word-something-2", text: "something", start: 18.56, end: 18.76, volumePercent: 54, pitchWeight: 520, pitchWidth: 96 },
-          { id: "word-without-2", text: "without", start: 18.76, end: 18.96, volumePercent: 46, pitchWeight: 470, pitchWidth: 92 },
-          { id: "word-any", text: "any", start: 18.96, end: 19.16, volumePercent: 48, pitchWeight: 480, pitchWidth: 92 },
-          { id: "word-sugar-2", text: "sugar", start: 19.16, end: 19.36, volumePercent: 46, pitchWeight: 460, pitchWidth: 90 },
-          { id: "word-in", text: "in", start: 19.36, end: 19.57, volumePercent: 46, pitchWeight: 450, pitchWidth: 90 },
-          { id: "word-it", text: "it,", start: 19.57, end: 19.77, volumePercent: 48, pitchWeight: 460, pitchWidth: 90 },
-          { id: "word-okay", text: "okay?", start: 19.77, end: 19.97, volumePercent: 62, pitchWeight: 620, pitchWidth: 102 }
+          { id: "word-look", text: "Look,", start: 17.76, end: 17.96, volumePercent: 50, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-just", text: "just", start: 17.96, end: 18.16, volumePercent: 50, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-give", text: "give", start: 18.16, end: 18.36, volumePercent: 52, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-me", text: "me", start: 18.36, end: 18.56, volumePercent: 50, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-something-2", text: "something", start: 18.56, end: 18.76, volumePercent: 54, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-without-2", text: "without", start: 18.76, end: 18.96, volumePercent: 46, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-any", text: "any", start: 18.96, end: 19.16, volumePercent: 48, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-sugar-2", text: "sugar", start: 19.16, end: 19.36, volumePercent: 46, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-in", text: "in", start: 19.36, end: 19.57, volumePercent: 46, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-it", text: "it,", start: 19.57, end: 19.77, volumePercent: 48, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-okay", text: "okay?", start: 19.77, end: 19.97, volumePercent: 62, pitchWeight: 400, pitchWidth: 100 }
         ]
       },
       {
@@ -258,9 +258,9 @@ function createSampleProject() {
         exception: false,
         offCamera: false,
         words: [
-          { id: "word-something-lou", text: "Something", start: 20.93, end: 21.23, volumePercent: 56, pitchWeight: 600, pitchWidth: 100 },
-          { id: "word-without-lou", text: "without", start: 21.23, end: 21.53, volumePercent: 54, pitchWeight: 580, pitchWidth: 98 },
-          { id: "word-sugar-lou", text: "sugar.", start: 21.53, end: 21.83, volumePercent: 58, pitchWeight: 620, pitchWidth: 100 }
+          { id: "word-something-lou", text: "Something", start: 20.93, end: 21.23, volumePercent: 56, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-without-lou", text: "without", start: 21.23, end: 21.53, volumePercent: 54, pitchWeight: 400, pitchWidth: 100 },
+          { id: "word-sugar-lou", text: "sugar.", start: 21.53, end: 21.83, volumePercent: 58, pitchWeight: 400, pitchWidth: 100 }
         ]
       },
       {
@@ -288,7 +288,7 @@ function createSampleProject() {
         exception: false,
         offCamera: false,
         words: [
-          { id: "word-cup-clatters", text: "cup clatters", start: 25.76, end: 26.67, volumePercent: 76, pitchWeight: 560, pitchWidth: 100 }
+          { id: "word-cup-clatters", text: "cup clatters", start: 25.76, end: 26.67, volumePercent: 76, pitchWeight: 400, pitchWidth: 100 }
         ]
       },
       {

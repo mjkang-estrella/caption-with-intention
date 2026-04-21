@@ -1089,7 +1089,7 @@
                 <div class="editor-section-title">Word Editor</div>
                 <span class="small-pill">empty</span>
               </div>
-              <div class="empty-card">Select a word in the Cue Editor to adjust transcript text, timing, volume, pitch, and layout.</div>
+              <div class="empty-card">Select a word in the Cue Editor to adjust transcript text, timing, volume, and layout.</div>
             </section>
           `;
         }
@@ -1143,16 +1143,20 @@
               </div>
             </div>
 
-            <div class="field-row">
-              <div class="control-group">
-                <label class="control-label" for="pitchWeight">Pitch weight</label>
-                <input class="control-input" id="pitchWeight" type="number" min="300" max="1000" step="10" data-control="pitch-weight" value="${pitchWeight}">
+            <details class="advanced-control">
+              <summary>Tone override</summary>
+              <p class="control-help">Optional editorial cue. Use sparingly for unusually deep, sharp, tense, or stylized delivery; preview keeps the default readable type style for ordinary words.</p>
+              <div class="field-row">
+                <div class="control-group">
+                  <label class="control-label" for="pitchWeight">Weight override</label>
+                  <input class="control-input" id="pitchWeight" type="number" min="300" max="1000" step="10" data-control="pitch-weight" value="${pitchWeight}">
+                </div>
+                <div class="control-group">
+                  <label class="control-label" for="pitchWidth">Width override</label>
+                  <input class="control-input" id="pitchWidth" type="number" min="75" max="125" step="1" data-control="pitch-width" value="${pitchWidth}">
+                </div>
               </div>
-              <div class="control-group">
-                <label class="control-label" for="pitchWidth">Pitch width</label>
-                <input class="control-input" id="pitchWidth" type="number" min="75" max="125" step="1" data-control="pitch-width" value="${pitchWidth}">
-              </div>
-            </div>
+            </details>
 
           </section>
         `;
@@ -1521,6 +1525,26 @@
           ? pass("Cue coverage", "Dialogue and AE-template sound effect cue types are represented.")
           : fail("Cue coverage", "The project should include the dialogue and sound-effect cues used by the After Effects template.");
 
+        const soundCueIssues = soundCuePolicyIssues(project.cues);
+        soundCueIssues.length
+          ? fail("Sound cue treatment", soundCueIssues.slice(0, 3).join("; "))
+          : pass("Sound cue treatment", "Sound effects stay white/default, bracketed, and render as single phrase units with cue-level intensity.");
+
+        const volumeIssues = volumePolicyIssues(project.cues);
+        volumeIssues.length
+          ? fail("Volume sizing", volumeIssues.slice(0, 3).join("; "))
+          : pass("Volume sizing", "All word volume values map to the 3%-12% policy range.");
+
+        const readAheadIssues = readAheadPolicyIssues(project.cues);
+        readAheadIssues.length
+          ? fail("Read-ahead and timing", readAheadIssues.slice(0, 3).join("; "))
+          : pass("Read-ahead and timing", "Dialogue cues keep complete read-ahead text and word timing records.");
+
+        const toneOverrideIssues = toneOverridePolicyIssues(project.cues);
+        toneOverrideIssues.length
+          ? fail("Tone override usage", toneOverrideIssues.slice(0, 3).join("; "))
+          : pass("Tone override usage", "Pitch weight and width remain optional editorial overrides rather than continuous per-word styling.");
+
         const aeMatches = project.cues
           .map((cue) => afterEffectsTranscriptReferenceForText(cue.text))
           .filter(Boolean);
@@ -1537,6 +1561,72 @@
           : pass("Caption work area", "Rendered caption boxes fit within the lower 20% work area with side and bottom safety margins.");
 
         return checks;
+      }
+
+      function soundCuePolicyIssues(cues) {
+        return (cues || [])
+          .filter((cue) => cue.type === "sound")
+          .flatMap((cue) => {
+            const issues = [];
+            const text = String(cue.text || "");
+            if (/^\s*\[/.test(text) || /\]\s*$/.test(text)) {
+              issues.push(`${cue.id} stores brackets in cue.text; store plain text and let rendering add brackets`);
+            }
+            if (!cue.words || cue.words.length !== 1) {
+              issues.push(`${cue.id} should use one word timing record so the bracketed sound renders as one phrase unit`);
+            }
+            if (cue.speakerId) issues.push(`${cue.id} should not have a speaker color assignment`);
+            return issues;
+          });
+      }
+
+      function volumePolicyIssues(cues) {
+        return (cues || []).flatMap((cue) => (cue.words || []).flatMap((word) => {
+          const volume = Number(word.volumePercent);
+          if (!Number.isFinite(volume)) return [`${word.id || cue.id} is missing volumePercent`];
+          const ratio = volumePercentToScreenRatio(volume);
+          if (ratio < CWI_CAPTION_MIN_SCREEN_RATIO || ratio > CWI_CAPTION_MAX_SCREEN_RATIO) {
+            return [`${word.id || cue.id} maps outside the 3%-12% type-size policy range`];
+          }
+          return [];
+        }));
+      }
+
+      function readAheadPolicyIssues(cues) {
+        return (cues || [])
+          .filter((cue) => cue.type === "dialogue")
+          .flatMap((cue) => {
+            const words = cue.words || [];
+            const normalizedCueText = normalizeTranscriptReferenceText(cue.text);
+            const normalizedWordText = normalizeTranscriptReferenceText(words.map((word) => word.text).join(" "));
+            const issues = [];
+            if (!normalizedCueText || normalizedCueText !== normalizedWordText) {
+              issues.push(`${cue.id} cue text does not match its word read-ahead text`);
+            }
+            if (words.some((word) => Number(word.start) < Number(cue.start) || Number(word.end) > Number(cue.end))) {
+              issues.push(`${cue.id} has word timing outside the cue range`);
+            }
+            return issues;
+          });
+      }
+
+      function toneOverridePolicyIssues(cues) {
+        const words = (cues || []).flatMap((cue) => cue.type === "dialogue" ? (cue.words || []) : []);
+        if (!words.length) return [];
+
+        const overrideWords = words.filter((word) => {
+          const weight = Number(word.pitchWeight);
+          const width = Number(word.pitchWidth);
+          return Math.abs((Number.isFinite(weight) ? weight : 400) - 400) >= 120 ||
+            Math.abs((Number.isFinite(width) ? width : 100) - 100) >= 10;
+        });
+
+        const overrideRatio = overrideWords.length / words.length;
+        if (overrideRatio > 0.2) {
+          return [`${overrideWords.length} of ${words.length} dialogue words have tone overrides; keep pitch styling sparse and editorial`];
+        }
+
+        return [];
       }
 
       function findMissingImportedFields(raw) {
@@ -1569,7 +1659,7 @@
             if (cue.type === "dialogue" && !cue.speakerId) warnings.push(`cues[${cueIndex}].speakerId is missing`);
             if (Array.isArray(cue.words)) {
               cue.words.forEach((word, wordIndex) => {
-                ["id", "text", "start", "end", "volumePercent", "pitchWeight", "pitchWidth"].forEach((field) => {
+                ["id", "text", "start", "end", "volumePercent"].forEach((field) => {
                   if (word[field] === undefined || word[field] === "") warnings.push(`cues[${cueIndex}].words[${wordIndex}].${field} is missing`);
                 });
               });

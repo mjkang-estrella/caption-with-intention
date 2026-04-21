@@ -8,7 +8,7 @@ The current app is a static TypeScript/CSS prototype. It loads a bundled sample 
 
 - Local video preview with a CWI caption overlay.
 - Transcript, speaker, and QA panels.
-- Inspector controls for cue timing, speaker assignment, word motion, volume size, pitch weight, pitch width, line breaks, off-camera styling, and exception flags.
+- Inspector controls for cue timing, speaker assignment, word motion, volume size, optional tone overrides, line breaks, off-camera styling, and exception flags.
 - Local media import through browser object URLs.
 - CWI JSON import/export for round-tripping editable project state.
 - Reference source material in `reference/`.
@@ -58,5 +58,9 @@ Recommended Vercel settings:
 Edit TypeScript in `src/`, then run `npm run build` so `dist/app.js` stays in sync with the static HTML page.
 
 The prototype has no backend and no upload path. Imported media stays in the browser as a local object URL, and the bundled sample media is loaded from `reference/`.
+
+Tone weight and width fields are stored as optional editorial overrides. They should be used sparingly for unusually deep, sharp, tense, or stylized delivery rather than applied continuously to every spoken word.
+
+Use the QA panel after timing or styling edits. It checks project structure, local media boundaries, AE sample coverage, work-area overflow, sound cue treatment, volume sizing range, read-ahead timing, and overuse of optional tone overrides.
 
 For product intent and the longer-term implementation sequence, start with `reference/SPEC.md`.
