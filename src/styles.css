@@ -208,10 +208,6 @@
       padding: 0 13px;
     }
 
-    label.text-button {
-      cursor: pointer;
-    }
-
     .primary-button {
       border-color: var(--orange);
       background: var(--orange);
@@ -359,8 +355,9 @@
     .caption-word {
       display: inline-block;
       margin: 0;
-      transform-origin: center bottom;
-      transition: color 90ms linear, transform 90ms ease-out;
+      transform-origin: center center;
+      line-height: 1.14;
+      transition: color 90ms linear;
       will-change: transform;
     }
 
@@ -369,6 +366,10 @@
     }
 
     .caption-word.intent {
+      z-index: 1;
+    }
+
+    .caption-word.anticipating {
       z-index: 1;
     }
 
@@ -1315,8 +1316,9 @@
         transition-duration: 0.01ms !important;
       }
 
-      .caption-word.intent {
-        transform: none;
+      .caption-word.intent,
+      .caption-word.anticipating {
+        transform: none !important;
       }
     }
 

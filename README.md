@@ -34,6 +34,17 @@ Open `index.html` in a browser. The prototype is intentionally static and can ru
 - `npm run build`: compile `src/model.ts` and `src/app.ts` into `dist/app.js`.
 - `npm run typecheck`: run TypeScript without writing output.
 
+## Deploy to Vercel
+
+This repo is deployable as a static Vercel project. The included `vercel.json` runs `npm run build` and serves the repository root so `index.html`, `dist/app.js`, `src/styles.css`, and the bundled `reference/` media assets remain available at the same paths used locally.
+
+Recommended Vercel settings:
+
+- Framework preset: Other
+- Build command: `npm run build`
+- Output directory: `.`
+- Install command: `npm install`
+
 ## Project layout
 
 - `index.html`: static app shell and initial markup.
