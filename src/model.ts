@@ -1,17 +1,17 @@
-const DEFAULT_MEDIA_SRC = "reference/AE PROJECT/(Footage)/ASETS/Video/Cena_ref_CI_Template_v02a.mp4";
-const CUE_TYPES = ["dialogue", "sound", "music"];
-const SPEAKER_ROLES = ["main", "supporting", "minor"];
-const PX_PER_SECOND = 110;
-const INSPECTOR_COLUMN_MIN = 300;
-const INSPECTOR_COLUMN_DEFAULT = 360;
-const INSPECTOR_STACK_MIN = 220;
-const CENTER_STAGE_MIN = 360;
-const MAX_ANALYSIS_BYTES = 120 * 1024 * 1024;
-const WAVEFORM_BARS_PER_SECOND = 10;
-const MIN_SPEAKER_HUE_DISTANCE = 30;
-const NEUTRAL_VOLUME_TOLERANCE = 5;
-const MAX_SIZED_WORD_SHARE = 0.5;
-const AUDIO_WAVEFORM = [
+import { CWI_SCHEMA_VERSION } from "./cwi-spec.ts";
+
+export const DEFAULT_MEDIA_SRC = "reference/AE PROJECT/(Footage)/ASETS/Video/Cena_ref_CI_Template_v02a.mp4";
+export const PX_PER_SECOND = 110;
+export const INSPECTOR_COLUMN_MIN = 300;
+export const INSPECTOR_COLUMN_DEFAULT = 360;
+export const INSPECTOR_STACK_MIN = 220;
+export const CENTER_STAGE_MIN = 360;
+export const MAX_ANALYSIS_BYTES = 120 * 1024 * 1024;
+export const WAVEFORM_BARS_PER_SECOND = 10;
+export const MIN_SPEAKER_HUE_DISTANCE = 30;
+export const NEUTRAL_VOLUME_TOLERANCE = 5;
+export const MAX_SIZED_WORD_SHARE = 0.5;
+export const AUDIO_WAVEFORM = [
   0.003, 0.003, 0.005, 0.003, 0.003, 0.003, 0.003, 0.003, 0.005, 0.003, 0.011, 0.174, 0.17, 0.22, 0.092, 0.04, 0.171, 0.129, 0.036, 0.013, 0.228, 0.194, 0.116, 0.028,
   0.169, 0.249, 0.173, 0.14, 0.178, 0.116, 0.14, 0.294, 0.364, 0.284, 0.253, 0.101, 0.268, 0.422, 0.46, 0.131, 0.217, 0.197, 0.144, 0.095, 0.039, 0.339, 0.271, 0.047,
   0.016, 0.005, 0.004, 0.003, 0.005, 0.02, 0.003, 0.003, 0.003, 0.006, 0.004, 0.015, 0.007, 0.008, 0.009, 0.009, 0.009, 0.006, 0.005, 0.003, 0.003, 0.004, 0.03, 0.025,
@@ -29,7 +29,7 @@ const AUDIO_WAVEFORM = [
   0.01, 0.009, 0.027, 0.02, 0.024, 0.022, 0.021, 0.021, 0.017, 0.012, 0.01, 0.012, 0.011, 0.011, 0.011, 0.011, 0.011, 0.011, 0.011, 0.01, 0.01, 0.017, 0.029, 0.295
 ];
 
-function normalizeTranscriptReferenceText(text) {
+export function normalizeTranscriptReferenceText(text) {
   return String(text || "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
@@ -37,7 +37,7 @@ function normalizeTranscriptReferenceText(text) {
     .replace(/\s+/g, " ");
 }
 
-function createSampleProject() {
+export function createSampleProject() {
   return {
     schemaVersion: CWI_SCHEMA_VERSION,
     project: {

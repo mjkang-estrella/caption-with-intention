@@ -1,3 +1,5 @@
+import { CWI_NEUTRAL_VOLUME, CWI_STYLE, cwiMixColor, cwiClamp, cwiNumber, cwiVolumeScale, cwiNormalizeException, cwiRoundTime } from "./cwi-spec.ts";
+
 // Pure Caption with Intention renderer: (project, time, viewport) -> caption frame state.
 //
 // Nothing here touches the DOM. The editor preview projects the frame state onto persistent
@@ -9,26 +11,26 @@
 // timing drives the cursor through each word's audible onset; cues without aligned timing use
 // the template's own formula, cursor = N * ease(p) + p between the START and END markers.
 
-function cwiLayoutTokens(aspectRatio) {
+export function cwiLayoutTokens(aspectRatio) {
   return CWI_STYLE.layout[aspectRatio] || CWI_STYLE.layout["16:9"];
 }
 
-function cwiBaseFontPx(viewport) {
+export function cwiBaseFontPx(viewport) {
   return Math.max(CWI_STYLE.type.minFontPx, Number(viewport.height) * CWI_STYLE.type.baseSizeRatio);
 }
 
-function cwiSmooth(value) {
+export function cwiSmooth(value) {
   const t = cwiClamp(value, 0, 1);
   return t * t * (3 - 2 * t);
 }
 
-function cwiEaseOut(value) {
+export function cwiEaseOut(value) {
   const t = cwiClamp(value, 0, 1);
   return 1 - (1 - t) * (1 - t);
 }
 
 // CSS-style cubic-bezier timing function solved for x by bisection.
-function cwiCubicBezier(progress, curve) {
+export function cwiCubicBezier(progress, curve) {
   const [x1, y1, x2, y2] = curve;
   const t = cwiClamp(progress, 0, 1);
   if (t === 0 || t === 1) return t;
@@ -44,7 +46,7 @@ function cwiCubicBezier(progress, curve) {
   return sample(y1, y2, u);
 }
 
-function cwiStripDecorators(text) {
+export function cwiStripDecorators(text) {
   return String(text || "")
     .replace(/^\s*[♪♫]\s*/, "")
     .replace(/\s*[♪♫]\s*$/, "")
@@ -52,7 +54,7 @@ function cwiStripDecorators(text) {
     .replace(/\]\s*$/, "");
 }
 
-function cwiCueDisplayText(cue) {
+export function cwiCueDisplayText(cue) {
   if (!cue) return "";
   const text = cwiStripDecorators(cue.text);
   if (cue.type === "sound") return `[${text}]`;
@@ -62,7 +64,7 @@ function cwiCueDisplayText(cue) {
 
 // Words as they are drawn: sound and music cues get their brackets and notes attached to the
 // first and last word, so the decorators never need to live in the stored transcript.
-function cwiCueDisplayWords(cue) {
+export function cwiCueDisplayWords(cue) {
   const stored = Array.isArray(cue.words) && cue.words.length ? cue.words : cwiFallbackWords(cue);
   if (cue.type === "dialogue") return stored.map((word) => ({ word, text: String(word.text || "") }));
 
@@ -77,7 +79,7 @@ function cwiCueDisplayWords(cue) {
   return words;
 }
 
-function cwiFallbackWords(cue) {
+export function cwiFallbackWords(cue) {
   return String(cwiStripDecorators(cue.text) || "").split(/\s+/).filter(Boolean).map((text, index) => ({
     id: `${cue.id}-generated-${index}`,
     text,
@@ -94,7 +96,7 @@ function cwiFallbackWords(cue) {
 // A word rests in plain caption type (base size, Regular 400/100) before and after it is spoken.
 // Its intonation (volume size, pitch weight and width) is the peak style it grows into while it
 // is spoken, then settles back from, as the doc's pop returns to the original size (4.3).
-function cwiWordStyles(cue, word, baseFontPx) {
+export function cwiWordStyles(cue, word, baseFontPx) {
   const slant = cue.offCamera ? CWI_STYLE.type.offCameraSlant : 0;
   const rest = { fontPx: baseFontPx, weight: CWI_STYLE.type.defaultWeight, width: CWI_STYLE.type.defaultWidth, slant };
   if (cwiNormalizeException(cue.exception).intonation) return { rest, peak: rest };
@@ -109,14 +111,14 @@ function cwiWordStyles(cue, word, baseFontPx) {
   };
 }
 
-function cwiLerpStyle(rest, peak, amount) {
+export function cwiLerpStyle(rest, peak, amount) {
   if (amount <= 0) return rest;
   if (amount >= 1) return peak;
   const lerp = (a, b) => a + (b - a) * amount;
   return { fontPx: lerp(rest.fontPx, peak.fontPx), weight: lerp(rest.weight, peak.weight), width: lerp(rest.width, peak.width), slant: rest.slant };
 }
 
-function cwiLayoutSignature(project, cue, viewport) {
+export function cwiLayoutSignature(project, cue, viewport) {
   return JSON.stringify([
     viewport.width,
     viewport.height,
@@ -135,7 +137,7 @@ function cwiLayoutSignature(project, cue, viewport) {
 // are chosen at the widest moment: the resting line plus the largest single-word growth. Adjacent
 // words hand the emphasis over (their amounts sum to 1), so a line never grows past that.
 // `measure(text, fontPx, weight, width, slant)` returns an advance width.
-function cwiLayoutCue(project, cue, viewport, measure) {
+export function cwiLayoutCue(project, cue, viewport, measure) {
   const tokens = cwiLayoutTokens(project.project && project.project.aspectRatio);
   const baseFontPx = cwiBaseFontPx(viewport);
   const padX = baseFontPx * CWI_STYLE.box.padXEm;
@@ -204,30 +206,30 @@ function cwiLayoutCue(project, cue, viewport, measure) {
   };
 }
 
-function cwiIsTimedCue(cue) {
+export function cwiIsTimedCue(cue) {
   return cue.type === "dialogue" || (cue.type === "sound" && CWI_STYLE.sound.syncToSound) || (cue.type === "music" && CWI_STYLE.music.animate);
 }
 
-function cwiUsesEstimatedTiming(words) {
+export function cwiUsesEstimatedTiming(words) {
   return !words.length || words.every((word) => word.timing === "estimated") ||
     words.some((word) => !Number.isFinite(Number(word.start)));
 }
 
 // AE's START/END markers for a cue without aligned word timing.
-function cwiEstimatedWindow(cue) {
+export function cwiEstimatedWindow(cue) {
   const start = Number(cue.start);
   const end = Number(cue.end);
   const insetEnd = end - CWI_STYLE.motion.estimatedEndInsetSeconds;
   return { start, end: insetEnd > start + 0.05 ? insetEnd : Math.max(start + 0.01, end) };
 }
 
-function cwiEstimatedCursor(count, time, window) {
+export function cwiEstimatedCursor(count, time, window) {
   const p = cwiClamp((time - window.start) / (window.end - window.start), 0, 1);
   return count * cwiCubicBezier(p, CWI_STYLE.motion.estimatedEase) + p;
 }
 
 // Time at which the estimated cursor reaches `index` (the cursor is monotonic).
-function cwiEstimatedTimeForCursor(count, index, window) {
+export function cwiEstimatedTimeForCursor(count, index, window) {
   let low = window.start;
   let high = window.end;
   for (let iteration = 0; iteration < 40; iteration += 1) {
@@ -240,7 +242,7 @@ function cwiEstimatedTimeForCursor(count, index, window) {
 
 // Word start/end times that reproduce the AE distribution, used to seed imported cues so the
 // timeline shows where each word will animate.
-function cwiEstimatedWordTimes(cue, count) {
+export function cwiEstimatedWordTimes(cue, count) {
   const window = cwiEstimatedWindow(cue);
   return Array.from({ length: count }, (_, index) => ({
     start: cwiRoundTime(cwiEstimatedTimeForCursor(count, index, window)),
@@ -248,7 +250,7 @@ function cwiEstimatedWordTimes(cue, count) {
   }));
 }
 
-function cwiAlignedKnots(onsets, ends) {
+export function cwiAlignedKnots(onsets, ends) {
   const count = onsets.length;
   const { maxRiseSeconds, settleSeconds } = CWI_STYLE.motion;
   const knots = [];
@@ -272,7 +274,7 @@ function cwiAlignedKnots(onsets, ends) {
   return knots;
 }
 
-function cwiKnotValue(knots, time) {
+export function cwiKnotValue(knots, time) {
   if (!knots.length || time < knots[0][0]) return 0;
   // Walk back to the latest knot at or before `time`; equal-time knots resolve to the later one.
   for (let index = knots.length - 1; index >= 0; index -= 1) {
@@ -289,7 +291,7 @@ function cwiKnotValue(knots, time) {
 // Per-word cursor state for a cue at `time`: the continuous cursor and each word's onset.
 // Sound effects are one event: every word shares a single unit that rises at the sound's onset,
 // holds while the sound lasts, and settles when it ends.
-function cwiCueTiming(cue, displayWords, time) {
+export function cwiCueTiming(cue, displayWords, time) {
   const words = displayWords.map((item) => item.word);
   if (cue.type !== "dialogue") {
     const estimated = cwiUsesEstimatedTiming(words);
@@ -311,7 +313,7 @@ function cwiCueTiming(cue, displayWords, time) {
   return { estimated: false, cursor: cwiKnotValue(cwiAlignedKnots(onsets, ends), time), onsets };
 }
 
-function cwiSyllableLifts(word, time) {
+export function cwiSyllableLifts(word, time) {
   const units = word.units || [];
   const start = Number(word.start);
   const end = Math.max(Number(word.end), start + 0.01);
@@ -321,14 +323,14 @@ function cwiSyllableLifts(word, time) {
   return units.map((_, index) => cwiSmooth(1 - Math.abs(cursor - (index + 1))));
 }
 
-function cwiSpokenColor(project, cue) {
+export function cwiSpokenColor(project, cue) {
   if (cue.type !== "dialogue") return CWI_STYLE.type.exceptionSpokenColor;
   if (cwiNormalizeException(cue.exception).color) return CWI_STYLE.type.exceptionSpokenColor;
   const speaker = (project.speakers || []).find((item) => item.id === cue.speakerId);
   return speaker ? speaker.color : CWI_STYLE.type.exceptionSpokenColor;
 }
 
-function cwiLiveCues(project, time) {
+export function cwiLiveCues(project, time) {
   return (project.cues || [])
     .filter((cue) => time >= Number(cue.start) && time <= Number(cue.end))
     .sort((a, b) => Number(a.start) - Number(b.start));
@@ -336,7 +338,7 @@ function cwiLiveCues(project, time) {
 
 // Full frame state. `getLayout(cue)` returns cwiLayoutCue output (the app caches it; tests call
 // cwiLayoutCue directly). Lines stack bottom-up with the earliest line on top (PDF p44-45).
-function cwiComputeFrame(project, time, viewport, getLayout, options: any = {}) {
+export function cwiComputeFrame(project, time, viewport, getLayout, options: any = {}) {
   const tokens = cwiLayoutTokens(project.project && project.project.aspectRatio);
   const reducedMotion = Boolean(options.reducedMotion);
   const readAhead = CWI_STYLE.type.readAheadColor;
@@ -483,7 +485,7 @@ function cwiComputeFrame(project, time, viewport, getLayout, options: any = {}) 
 }
 
 // Largest number of caption lines that are on screen together, sampled at every cue start.
-function cwiMaxSimultaneousLines(project, getLayout) {
+export function cwiMaxSimultaneousLines(project, getLayout) {
   let worst = { count: 0, time: 0 };
   (project.cues || []).forEach((cue) => {
     const time = Number(cue.start);

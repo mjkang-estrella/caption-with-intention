@@ -1,5 +1,4 @@
 node_modules/
 .omx/
 .DS_Store
-.test-build/
 test/

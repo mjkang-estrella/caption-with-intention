@@ -1,3 +1,7 @@
+import { DEFAULT_MEDIA_SRC, PX_PER_SECOND, INSPECTOR_COLUMN_MIN, INSPECTOR_COLUMN_DEFAULT, INSPECTOR_STACK_MIN, CENTER_STAGE_MIN, MAX_ANALYSIS_BYTES, WAVEFORM_BARS_PER_SECOND, MIN_SPEAKER_HUE_DISTANCE, NEUTRAL_VOLUME_TOLERANCE, MAX_SIZED_WORD_SHARE, AUDIO_WAVEFORM, normalizeTranscriptReferenceText, createSampleProject } from "./model.ts";
+import { CWI_SCHEMA_VERSION, CUE_TYPES, SPEAKER_ROLES, CWI_ASPECT_RATIOS, CWI_WORD_MOTIONS, CWI_NEUTRAL_VOLUME, CWI_DEFAULT_FRAME_RATE, CWI_STYLE, CWI_ANALYSIS, SPEAKER_PALETTE, cwiHueDistance, cwiNumber, cwiVolumeScreenPercent, cwiToneFromSlider, cwiSliderFromTone, cwiToneForPitchHz, cwiToneInBand, cwiNearestAspectRatio, cwiNormalizeException, cwiHasException, cwiNormalizeProject } from "./cwi-spec.ts";
+import { cwiStripDecorators, cwiCueDisplayText, cwiLayoutSignature, cwiLayoutCue, cwiEstimatedWordTimes, cwiLiveCues, cwiComputeFrame, cwiMaxSimultaneousLines } from "./renderer.ts";
+
     (() => {
 
       const state = {

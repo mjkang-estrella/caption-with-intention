@@ -1,12 +1,15 @@
 {
   "name": "caption-with-intent",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "rm -f dist/app.js && tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsc -p tsconfig.test.json && node --test test/*.test.mjs"
+    "build": "esbuild src/app.ts --bundle --format=iife --target=es2020 --outfile=dist/app.js",
+    "dev": "esbuild src/app.ts --bundle --format=iife --target=es2020 --outfile=dist/app.js --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.ts"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "typescript": "^5.9.3"
   }
 }

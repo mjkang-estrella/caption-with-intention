@@ -8,14 +8,16 @@
 // off-camera slant, music treatment, two-line stacking, and the minor-character palette.
 // Renderer code should read every caption value from here instead of inlining numbers.
 
-const CWI_SCHEMA_VERSION = 2;
-const CWI_ASPECT_RATIOS = ["16:9", "9:16", "1:1"];
-const CWI_WORD_MOTIONS = ["pop", "none", "syllable"];
-const CWI_WORD_TIMINGS = ["aligned", "estimated", "manual"];
-const CWI_NEUTRAL_VOLUME = 50;
-const CWI_DEFAULT_FRAME_RATE = 30;
+export const CWI_SCHEMA_VERSION = 2;
+export const CUE_TYPES = ["dialogue", "sound", "music"];
+export const SPEAKER_ROLES = ["main", "supporting", "minor"];
+export const CWI_ASPECT_RATIOS = ["16:9", "9:16", "1:1"];
+export const CWI_WORD_MOTIONS = ["pop", "none", "syllable"];
+export const CWI_WORD_TIMINGS = ["aligned", "estimated", "manual"];
+export const CWI_NEUTRAL_VOLUME = 50;
+export const CWI_DEFAULT_FRAME_RATE = 30;
 
-const CWI_STYLE = {
+export const CWI_STYLE = {
   type: {
     // AE: 27 px on a 1080 px comp. The doc's "5% of screen height" measures the box band
     // (PDF p35-37), which a 2.5% font plus the AE padding reproduces.
@@ -81,7 +83,7 @@ const CWI_STYLE = {
 
 // Local audio analysis that seeds word volume. Speech within the dead zone of the median level
 // stays at the normal size; the full-scale offset reaches the whisper or shout limit.
-const CWI_ANALYSIS = {
+export const CWI_ANALYSIS = {
   silenceDb: -60,
   volumeDeadZoneDb: 3,
   volumeFullScaleDb: 12
@@ -89,7 +91,7 @@ const CWI_ANALYSIS = {
 
 // Main colors in the design-system slot order (PDF p16). Template colors are the eight
 // swatches in the AE guide layer.
-const CWI_MAIN_COLORS = [
+export const CWI_MAIN_COLORS = [
   { label: "CI Main Yellow", color: "#E5E517", template: true },
   { label: "CI Main Green", color: "#17E517", template: true },
   { label: "CI Main Blue", color: "#17E5E5", template: true },
@@ -98,7 +100,7 @@ const CWI_MAIN_COLORS = [
   { label: "CI Main Orange", color: "#E58017", template: false }
 ];
 
-const CWI_SUPPORTING_COLORS = [
+export const CWI_SUPPORTING_COLORS = [
   { label: "CI Support Orange", color: "#E85C2E", template: true },
   { label: "CI Support Yellow", color: "#EBC247", template: true },
   { label: "CI Support Green I", color: "#C2EB47", template: false },
@@ -114,15 +116,15 @@ const CWI_SUPPORTING_COLORS = [
 ];
 
 // Minor characters: pastel hues at 30% saturation and 90% brightness (PDF p22).
-const CWI_MINOR_HUES = [0, 342, 327, 313, 298, 282, 267, 251, 240, 222, 207, 193, 178, 162, 149, 133, 120, 102, 87, 73, 58, 40, 24, 7];
+export const CWI_MINOR_HUES = [0, 342, 327, 313, 298, 282, 267, 251, 240, 222, 207, 193, 178, 162, 149, 133, 120, 102, 87, 73, 58, 40, 24, 7];
 
-const SPEAKER_PALETTE = [
+export const SPEAKER_PALETTE = [
   ...CWI_MAIN_COLORS.map((entry) => ({ role: "main", ...entry })),
   ...CWI_SUPPORTING_COLORS.map((entry) => ({ role: "supporting", ...entry })),
   ...CWI_MINOR_HUES.map((hue) => ({ role: "minor", label: `Minor Pastel ${hue}°`, color: cwiHsbToHex(hue, 0.3, 0.9), template: false }))
 ];
 
-function cwiHsbToHex(hue, saturation, brightness) {
+export function cwiHsbToHex(hue, saturation, brightness) {
   const h = ((Number(hue) % 360) + 360) % 360 / 60;
   const chroma = brightness * saturation;
   const x = chroma * (1 - Math.abs((h % 2) - 1));
@@ -136,14 +138,14 @@ function cwiHsbToHex(hue, saturation, brightness) {
   return `#${[r, g, b].map((channel) => Math.round((channel + m) * 255).toString(16).padStart(2, "0")).join("").toUpperCase()}`;
 }
 
-function cwiHexToRgb(hex) {
+export function cwiHexToRgb(hex) {
   const value = String(hex || "").trim().replace(/^#/, "");
   const full = value.length === 3 ? value.split("").map((part) => part + part).join("") : value;
   if (!/^[0-9a-f]{6}$/i.test(full)) return null;
   return [0, 2, 4].map((offset) => parseInt(full.slice(offset, offset + 2), 16));
 }
 
-function cwiMixColor(from, to, amount) {
+export function cwiMixColor(from, to, amount) {
   const a = cwiHexToRgb(from);
   const b = cwiHexToRgb(to);
   if (!a || !b) return amount >= 0.5 ? to : from;
@@ -152,7 +154,7 @@ function cwiMixColor(from, to, amount) {
   return `rgb(${mixed[0]}, ${mixed[1]}, ${mixed[2]})`;
 }
 
-function cwiHueOf(hex) {
+export function cwiHueOf(hex) {
   const rgb = cwiHexToRgb(hex);
   if (!rgb) return NaN;
   const [r, g, b] = rgb.map((channel) => channel / 255);
@@ -163,7 +165,7 @@ function cwiHueOf(hex) {
   return (hue * 60 + 360) % 360;
 }
 
-function cwiHueDistance(a, b) {
+export function cwiHueDistance(a, b) {
   const hueA = cwiHueOf(a);
   const hueB = cwiHueOf(b);
   if (!Number.isFinite(hueA) || !Number.isFinite(hueB)) return 180;
@@ -171,18 +173,18 @@ function cwiHueDistance(a, b) {
   return Math.min(distance, 360 - distance);
 }
 
-function cwiClamp(value, min, max) {
+export function cwiClamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function cwiNumber(value, fallback) {
+export function cwiNumber(value, fallback) {
   if (value === null || value === undefined || value === "") return fallback;
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
 }
 
 // Volume 0-100 maps to a type-size multiplier: 0 = whisper (3%), 50 = normal (5%), 100 = shout (12%).
-function cwiVolumeScale(volumePercent) {
+export function cwiVolumeScale(volumePercent) {
   const volume = cwiClamp(cwiNumber(volumePercent, CWI_NEUTRAL_VOLUME), 0, 100);
   const { minVolumeScale, maxVolumeScale } = CWI_STYLE.type;
   if (volume <= CWI_NEUTRAL_VOLUME) return minVolumeScale + (volume / CWI_NEUTRAL_VOLUME) * (1 - minVolumeScale);
@@ -190,13 +192,13 @@ function cwiVolumeScale(volumePercent) {
 }
 
 // Equivalent share of screen height for the doc's 3% / 5% / 12% vocabulary.
-function cwiVolumeScreenPercent(volumePercent) {
+export function cwiVolumeScreenPercent(volumePercent) {
   return cwiVolumeScale(volumePercent) * 5;
 }
 
 // Tone slider -1..1 walks the valid diagonal: -1 light+condensed (high, sharp voice),
 // 0 Regular 400/100, 1 heavy+wide (deep, full voice).
-function cwiToneFromSlider(tone) {
+export function cwiToneFromSlider(tone) {
   const value = cwiClamp(cwiNumber(tone, 0), -1, 1);
   const { defaultWeight, defaultWidth } = CWI_STYLE.type;
   const { minWeight, maxWeight, minWidth } = CWI_STYLE.tone;
@@ -206,7 +208,7 @@ function cwiToneFromSlider(tone) {
   return { weight: Math.round(defaultWeight + value * (defaultWeight - minWeight)), width: Math.round(defaultWidth + value * (defaultWidth - minWidth)) };
 }
 
-function cwiSliderFromTone(weight) {
+export function cwiSliderFromTone(weight) {
   const value = cwiNumber(weight, CWI_STYLE.type.defaultWeight);
   const { defaultWeight } = CWI_STYLE.type;
   const { minWeight, maxWeight } = CWI_STYLE.tone;
@@ -216,7 +218,7 @@ function cwiSliderFromTone(weight) {
 
 // PDF p40 maps 80 Hz to wght 1000 / wdth 150 and 250 Hz to wght 100 / wdth 25; p39 keeps the
 // typical 160-200 Hz voice at Regular 400 / 100. Interpolate between those anchors.
-function cwiToneForPitchHz(hz) {
+export function cwiToneForPitchHz(hz) {
   const value = cwiClamp(cwiNumber(hz, 180), 80, 250);
   const lerp = (a, b, t) => Math.round(a + (b - a) * t);
   if (value < 160) {
@@ -228,18 +230,18 @@ function cwiToneForPitchHz(hz) {
   return { weight: lerp(400, 100, t), width: lerp(100, 25, t) };
 }
 
-function cwiToneBandOffset(weight, width) {
+export function cwiToneBandOffset(weight, width) {
   const { minWeight, maxWeight, minWidth, maxWidth } = CWI_STYLE.tone;
   const w = (cwiNumber(weight, CWI_STYLE.type.defaultWeight) - minWeight) / (maxWeight - minWeight);
   const d = (cwiNumber(width, CWI_STYLE.type.defaultWidth) - minWidth) / (maxWidth - minWidth);
   return w - d;
 }
 
-function cwiToneInBand(weight, width) {
+export function cwiToneInBand(weight, width) {
   return Math.abs(cwiToneBandOffset(weight, width)) <= CWI_STYLE.tone.bandTolerance;
 }
 
-function cwiNearestAspectRatio(width, height) {
+export function cwiNearestAspectRatio(width, height) {
   const ratio = Number(width) / Number(height);
   if (!Number.isFinite(ratio) || ratio <= 0) return "16:9";
   const candidates = CWI_ASPECT_RATIOS.map((aspect) => {
@@ -249,7 +251,7 @@ function cwiNearestAspectRatio(width, height) {
   return candidates.sort((a, b) => a.distance - b.distance)[0].aspect;
 }
 
-function cwiNormalizeException(value) {
+export function cwiNormalizeException(value) {
   if (value && typeof value === "object") {
     return { color: Boolean(value.color), motion: Boolean(value.motion), intonation: Boolean(value.intonation) };
   }
@@ -257,12 +259,12 @@ function cwiNormalizeException(value) {
   return { color: Boolean(value), motion: false, intonation: false };
 }
 
-function cwiHasException(cue) {
+export function cwiHasException(cue) {
   const exception = cwiNormalizeException(cue && cue.exception);
   return exception.color || exception.motion || exception.intonation;
 }
 
-function cwiNormalizeWord(word, cue, cueId, wordIndex) {
+export function cwiNormalizeWord(word, cue, cueId, wordIndex) {
   const start = cwiNumber(word.start, cwiNumber(cue.start, 0));
   const end = cwiNumber(word.end, cwiNumber(cue.end, start + 0.5));
   const units = Array.isArray(word.units)
@@ -285,7 +287,7 @@ function cwiNormalizeWord(word, cue, cueId, wordIndex) {
   };
 }
 
-function cwiNormalizeCue(cue, index) {
+export function cwiNormalizeCue(cue, index) {
   const id = String(cue.id || `cue-${index + 1}`);
   const words = Array.isArray(cue.words) ? cue.words.map((word, wordIndex) => cwiNormalizeWord(word || {}, cue, id, wordIndex)) : [];
   const start = cwiNumber(cue.start, words.length ? Math.min(...words.map((word) => word.start)) : 0);
@@ -306,7 +308,7 @@ function cwiNormalizeCue(cue, index) {
 
 // Normalizes any v1 or v2 CWI document into the current schema. `fallback` supplies project
 // fields that belong to the local session (media name, duration) when the file omits them.
-function cwiNormalizeProject(raw, fallback: any = {}) {
+export function cwiNormalizeProject(raw, fallback: any = {}) {
   if (!raw || typeof raw !== "object") throw new Error("JSON must be an object with project, speakers, and cues.");
   if (!raw.project || !Array.isArray(raw.speakers) || !Array.isArray(raw.cues)) {
     throw new Error("JSON must include project, speakers, and cues arrays.");
@@ -337,6 +339,6 @@ function cwiNormalizeProject(raw, fallback: any = {}) {
   };
 }
 
-function cwiRoundTime(value) {
+export function cwiRoundTime(value) {
   return Math.round(Number(value) * 100) / 100;
 }

@@ -22,19 +22,20 @@ Install dependencies:
 npm install
 ```
 
-Build the TypeScript bundle:
+Build the browser bundle (`dist/` is generated and not committed, so build before opening the page):
 
 ```sh
 npm run build
 ```
 
-Open `index.html` in a browser. The prototype is intentionally static and can run from `file://`; a local static server is optional.
+Open `index.html` in a browser. The prototype is intentionally static and can run from `file://`; a local static server is optional. Tests and type stripping need Node 22.18 or newer.
 
 ## Scripts
 
-- `npm run build`: compile `src/model.ts` and `src/app.ts` into `dist/app.js`.
-- `npm run typecheck`: run TypeScript without writing output.
-- `npm test`: compile the model, spec, and renderer into `.test-build/` and run the renderer tests in `test/` with `node --test`.
+- `npm run build`: bundle the ES modules in `src/` into a single classic script, `dist/app.js`, with esbuild.
+- `npm run dev`: rebuild `dist/app.js` on every change.
+- `npm run typecheck`: type-check `src/` with TypeScript (no output).
+- `npm test`: run the tests in `test/` with `node --test`; Node runs the TypeScript sources directly.
 
 ## Deploy to Vercel
 
@@ -54,7 +55,7 @@ Recommended Vercel settings:
   - `src/cwi-spec.ts`: CWI style tokens (sizes, motion, box, layout per aspect ratio), speaker palette, and the `cwi.json` schema normalizer.
   - `src/renderer.ts`: pure caption renderer, `(project, time, viewport) -> frame state`, with no DOM access.
   - `src/app.ts`: editor UI and the DOM view that projects frame state onto persistent caption nodes.
-- `dist/`: compiled browser bundle loaded by `index.html`.
+- `dist/`: generated browser bundle loaded by `index.html` (not committed).
 - `reference/`: product spec, CWI guidelines, source PDFs, Roboto Flex font, After Effects assets, and sample media.
 - `.omx/`: local orchestration/runtime state, ignored by Git.
 

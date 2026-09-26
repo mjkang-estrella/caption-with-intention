@@ -1,17 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
+import * as spec from "../src/cwi-spec.ts";
+import * as model from "../src/model.ts";
+import * as renderer from "../src/renderer.ts";
 
-// The app compiles to a classic script (module: none), so load the renderer bundle into a VM
-// context and pull the globals it defines.
-const bundle = readFileSync(new URL("../.test-build/cwi-core.js", import.meta.url), "utf8");
-const cwi = vm.runInNewContext(`${bundle}
-;({
-  CWI_STYLE, SPEAKER_PALETTE, createSampleProject, cwiNormalizeProject, cwiVolumeScale, cwiToneFromSlider,
-  cwiToneForPitchHz, cwiToneInBand, cwiLayoutCue, cwiComputeFrame, cwiEstimatedCursor, cwiEstimatedWindow,
-  cwiEstimatedWordTimes, cwiCueDisplayText, cwiMaxSimultaneousLines, cwiHsbToHex, cwiNearestAspectRatio, cwiCubicBezier
-})`);
+const cwi = { ...spec, ...model, ...renderer };
 
 const VIEWPORT = { width: 1920, height: 1080 };
 const BASE_PX = 27;
