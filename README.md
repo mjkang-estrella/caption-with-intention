@@ -51,10 +51,14 @@ Recommended Vercel settings:
 ## Project layout
 
 - `index.html`: static app shell and initial markup.
-- `src/`: editable TypeScript and CSS source.
-  - `src/cwi-spec.ts`: CWI style tokens (sizes, motion, box, layout per aspect ratio), speaker palette, and the `cwi.json` schema normalizer.
-  - `src/renderer.ts`: pure caption renderer, `(project, time, viewport) -> frame state`, with no DOM access.
-  - `src/app.ts`: editor UI and the DOM view that projects frame state onto persistent caption nodes.
+- `src/core/`: DOM-free logic, type-checked in strict mode and tested directly with Node.
+  - `types.ts`: the `cwi.json` schema and renderer data types.
+  - `style.ts`: CWI style tokens (sizes, motion, box, layout per aspect ratio), speaker palette, volume and tone mappings.
+  - `schema.ts`: schema constants and the normalizer that migrates v1 files and fills defaults.
+  - `renderer.ts`: pure caption renderer, `(project, time, viewport) -> frame state`.
+  - `edit.ts`, `subtitles.ts`, `audio-analysis.ts`, `qa.ts`: editing rules, SRT/WebVTT import, local volume analysis, and QA checks.
+  - `sample.cwi.json`: the bundled sample project.
+- `src/app.ts` and `src/app/`: editor UI and the DOM view that projects frame state onto persistent caption nodes.
 - `dist/`: generated browser bundle loaded by `index.html` (not committed).
 - `reference/`: product spec, CWI guidelines, source PDFs, Roboto Flex font, After Effects assets, and sample media.
 - `.omx/`: local orchestration/runtime state, ignored by Git.
@@ -63,7 +67,7 @@ Recommended Vercel settings:
 
 Edit TypeScript in `src/`, then run `npm run build` so `dist/app.js` stays in sync with the static HTML page.
 
-Caption styling and motion values live in `CWI_STYLE` (`src/cwi-spec.ts`). The defaults follow the After Effects template in `reference/AE PROJECT/`: 27 px type on a 1080 px frame (2.5% of height), #DDDDDD read-ahead text, an 80% black box padded 30 px per side and 20 px top and bottom, a 5 px lift on the word being spoken, and a 2 px dip on the next word. The guideline doc fills in what the template does not define: volume sizing from 3% to 12%, pitch-driven weight and width, off-camera slant, music notes, and two-line stacking. Change a token rather than adding numbers to the renderer.
+Caption styling and motion values live in `CWI_STYLE` (`src/core/style.ts`). The defaults follow the After Effects template in `reference/AE PROJECT/`: 27 px type on a 1080 px frame (2.5% of height), #DDDDDD read-ahead text, an 80% black box padded 30 px per side and 20 px top and bottom, a 5 px lift on the word being spoken, and a 2 px dip on the next word. The guideline doc fills in what the template does not define: volume sizing from 3% to 12%, pitch-driven weight and width, off-camera slant, music notes, and two-line stacking. Change a token rather than adding numbers to the renderer.
 
 Words rest in plain caption type (base size, Regular) before and after they are spoken, like familiar read-ahead captions. A word's intonation (volume size, pitch weight and width) is applied only while it is spoken: the word grows into it, pushes its neighbors and the box outward, then settles back. Line breaks are chosen at that widest moment, so a line never re-wraps mid-animation. Reduced-motion users get color sync without the lift or push. The dashed caption work-area guide is off by default; toggle it from the preview controls.
 
