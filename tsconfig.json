@@ -2,11 +2,18 @@
   "compilerOptions": {
     "target": "ES2020",
     "lib": ["DOM", "ES2020"],
-    "module": "none",
-    "outFile": "dist/app.js",
-    "strict": false,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "strict": true,
     "skipLibCheck": true,
-    "removeComments": false
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
   },
-  "files": ["src/model.ts", "src/app.ts"]
+  "include": ["src"]
 }

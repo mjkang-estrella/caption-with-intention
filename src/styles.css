@@ -2,6 +2,10 @@
       font-family: "Roboto Flex Local";
       src: url("../reference/Instal Font - RobotoFlex.ttf") format("truetype");
       font-display: swap;
+      /* Declare the variable axes so weight, width, and slant render from the font, not synthesized. */
+      font-weight: 100 1000;
+      font-stretch: 25% 151%;
+      font-style: oblique 0deg 10deg;
     }
 
     :root {
@@ -36,12 +40,10 @@
       --surface-row-label: #100e0c;
       --surface-inspector: #0c0b0a;
       --surface-preview-control: rgba(5, 5, 4, 0.78);
-      --surface-caption: rgba(0, 0, 0, 0.9);
       --media-border: #3a3025;
       --media-border-strong: #705f4b;
       --primary-button-ink: #160804;
       --safe-guide: rgba(244, 240, 231, 0.14);
-      --caption-idle: #dddddd;
       --status-pass-bg: rgba(24, 70, 38, 0.34);
       --status-pass-border: rgba(71, 235, 112, 0.45);
       --status-pass-kicker: #8ef0a7;
@@ -224,6 +226,11 @@
       min-height: var(--target);
     }
 
+    .text-button:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+
     .workspace {
       --inspector-size: 360px;
       min-height: 0;
@@ -263,25 +270,18 @@
     }
 
     .phone-frame {
-      width: min(100%, calc((100vh - 226px) * 16 / 9));
+      --frame-aspect-w: 16;
+      --frame-aspect-h: 9;
+      width: min(100%, calc((100vh - 226px) * var(--frame-aspect-w) / var(--frame-aspect-h)));
       min-width: 0;
       max-height: 100%;
-      aspect-ratio: 16 / 9;
+      aspect-ratio: var(--frame-aspect-w) / var(--frame-aspect-h);
       border-radius: 8px;
       position: relative;
       overflow: hidden;
       background: var(--surface-phone);
       border: 1px solid var(--media-border-strong);
       box-shadow: var(--shadow);
-    }
-
-    .phone-frame::before {
-      content: "";
-      position: absolute;
-      inset: 10px;
-      border: 1px dashed var(--safe-guide);
-      pointer-events: none;
-      z-index: 4;
     }
 
     .media {
@@ -302,94 +302,45 @@
       z-index: 1;
     }
 
+    /* Caption geometry comes from cwiComputeFrame (src/renderer.ts); these rules only position it. */
     .caption-safe {
       position: absolute;
-      left: 5.5%;
-      right: 5.5%;
-      bottom: 0;
-      height: 20%;
-      text-align: center;
+      inset: 0;
       z-index: 2;
       font-family: var(--font-cwi);
       pointer-events: none;
     }
 
-    .caption-stack {
+    .caption-guide {
       position: absolute;
-      inset: 1px 0 0;
-      display: grid;
-      grid-template-rows: 25% 12.5% 25% 37.5%;
-      align-items: center;
-      justify-items: center;
-      width: 100%;
-      height: calc(100% - 1px);
-    }
-
-    .caption-stack.one-line .caption-line {
-      grid-row: 3;
-    }
-
-    .caption-stack.two-lines .caption-line:first-child {
-      grid-row: 1;
-    }
-
-    .caption-stack.two-lines .caption-line:last-child {
-      grid-row: 3;
+      border: 1px dashed var(--safe-guide);
     }
 
     .caption-line {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.28em;
-      max-width: 100%;
-      max-height: 100%;
-      padding: var(--caption-box-padding-y, 0.42em) var(--caption-box-padding-x, 2.22em);
-      background: var(--surface-caption);
-      box-decoration-break: clone;
-      -webkit-box-decoration-break: clone;
-      color: var(--caption-idle);
-      font-size: var(--caption-font-size, 27px);
-      font-weight: 400;
-      line-height: 1.14;
-      text-transform: none;
-      white-space: nowrap;
-      overflow: visible;
-    }
-
-    .caption-overflow .caption-line {
-      white-space: normal;
-      overflow-wrap: anywhere;
-      text-wrap: balance;
+      position: absolute;
+      box-sizing: border-box;
     }
 
     .caption-word {
-      display: inline-block;
-      margin: 0;
-      transform-origin: center center;
-      line-height: 1.14;
-      transition: color 90ms linear;
+      position: absolute;
+      white-space: pre;
+      transform-origin: 50% 100%;
       will-change: transform;
     }
 
-    .caption-word.spoken {
-      color: var(--cyan);
+    .caption-unit {
+      display: inline-block;
+      will-change: transform;
     }
 
-    .caption-word.intent {
-      z-index: 1;
-    }
-
-    .caption-word.anticipating {
-      z-index: 1;
-    }
-
-    .caption-word.off-camera {
-      font-style: italic;
-    }
-
-    .caption-empty {
-      opacity: 0;
+    .caption-measure {
+      position: absolute;
+      top: 0;
+      left: -10000px;
+      visibility: hidden;
+      white-space: pre;
+      font-family: var(--font-cwi);
+      pointer-events: none;
     }
 
     .preview-control {
@@ -423,6 +374,11 @@
       color: var(--ink-soft);
       display: grid;
       place-items: center;
+    }
+
+    .preview-button[aria-pressed="true"] {
+      background: var(--panel-lift);
+      color: var(--ink);
     }
 
     .time-readout {
@@ -761,6 +717,59 @@
     .word.live {
       color: var(--yellow);
       border-bottom-color: var(--yellow);
+    }
+
+    .word.estimated,
+    .word-picker-button.estimated,
+    .segment.estimated {
+      border-style: dashed;
+    }
+
+    .timing-pill {
+      margin-left: 6px;
+      padding: 1px 6px;
+      border: 1px solid var(--line-bright);
+      border-radius: 999px;
+      color: var(--ink-soft);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: none;
+    }
+
+    .timing-pill.estimated {
+      border-style: dashed;
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+
+    .timing-note,
+    .tone-warning {
+      color: var(--status-fail-kicker);
+    }
+
+    .exception-group {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      min-width: 0;
+    }
+
+    .exception-group legend {
+      padding: 0;
+    }
+
+    .range-row.tone-row {
+      grid-template-columns: auto 1fr auto;
+    }
+
+    .range-end {
+      color: var(--ink-dim);
+      font-size: 11px;
+    }
+
+    .aspect-select .control-select {
+      min-height: 36px;
+      width: auto;
     }
 
     .inspector-resize {
@@ -1380,11 +1389,6 @@
         scroll-behavior: auto !important;
         transition-duration: 0.01ms !important;
       }
-
-      .caption-word.intent,
-      .caption-word.anticipating {
-        transform: none !important;
-      }
     }
 
     @media (max-width: 1120px) {
@@ -1398,7 +1402,7 @@
       }
 
       .phone-frame {
-        width: min(100%, calc((100vh - 210px) * 16 / 9));
+        width: min(100%, calc((100vh - 210px) * var(--frame-aspect-w) / var(--frame-aspect-h)));
         min-width: 0;
       }
     }
@@ -1520,7 +1524,7 @@
       }
 
       .phone-frame {
-        width: min(100%, 560px);
+        width: min(100%, 560px, calc(70vh * var(--frame-aspect-w) / var(--frame-aspect-h)));
         min-width: 0;
       }
 
