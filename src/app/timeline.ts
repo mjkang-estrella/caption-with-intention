@@ -2,7 +2,7 @@ import { clamp, escapeAttr, escapeHtml, formatTime } from "../core/util.ts";
 import { PX_PER_SECOND } from "./constants.ts";
 import { closestElement, els, queryAll } from "./dom.ts";
 import { currentMediaTime, getCurrentCueAndWord, getDuration, isCueLive, seekPreviewToTime } from "./playback.ts";
-import { renderAll, renderParts } from "./render.ts";
+import { invalidateAll, renderParts } from "./render.ts";
 import { AUDIO_WAVEFORM } from "./sample-media.ts";
 import { announceStatus } from "./status.ts";
 import { speakerName, state } from "./store.ts";
@@ -19,7 +19,7 @@ export function setupTimelineEvents(): void {
 
     state.selectedCueId = segment.dataset.cueId || "";
     state.selectedWordId = segment.dataset.wordId || "";
-    renderAll();
+    invalidateAll();
   });
 
   els.timelineGrid.addEventListener("keydown", (event) => {

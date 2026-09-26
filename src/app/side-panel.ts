@@ -5,7 +5,7 @@ import type { Control } from "./dom.ts";
 import { renderQaPanel } from "./panels/qa.ts";
 import { addSpeakerToProject, renderSpeakersPanel, updateSpeakerFromControl } from "./panels/speakers.ts";
 import { addCueToTranscript, deleteCueFromTranscript, renderTranscriptPanel, updateTranscriptCueFromControl } from "./panels/transcript.ts";
-import { renderAll, renderParts } from "./render.ts";
+import { invalidate, invalidateAll } from "./render.ts";
 import { state } from "./store.ts";
 import type { SideTab } from "./store.ts";
 
@@ -36,7 +36,7 @@ export function setupSidePanelEvents(): void {
   els.sideContent.addEventListener("click", (event) => {
     if (closestElement(event, "[data-add-speaker]")) {
       addSpeakerToProject();
-      renderAll();
+      invalidateAll();
       return;
     }
 
@@ -48,7 +48,7 @@ export function setupSidePanelEvents(): void {
 
     if (closestElement(event, "[data-add-cue]")) {
       addCueToTranscript();
-      renderAll();
+      invalidateAll();
       return;
     }
 
@@ -60,7 +60,7 @@ export function setupSidePanelEvents(): void {
     const deleteCue = closestElement(event, "[data-delete-cue]");
     if (deleteCue) {
       deleteCueFromTranscript(deleteCue.dataset.deleteCue || "");
-      renderAll();
+      invalidateAll();
       return;
     }
 
@@ -86,11 +86,11 @@ export function setupSidePanelEvents(): void {
   });
 
   els.sideContent.addEventListener("input", (event) => {
-    if (applySideControl(event)) renderParts("inspector", "timeline", "playback");
+    if (applySideControl(event)) invalidate("topbar", "inspector", "timeline", "playback");
   });
 
   els.sideContent.addEventListener("change", (event) => {
-    if (applySideControl(event)) renderAll();
+    if (applySideControl(event)) invalidateAll();
   });
 }
 
@@ -117,7 +117,7 @@ function toggleSpeakerEditor(speakerId: string): void {
 function selectCue(cueId: string): void {
   state.selectedCueId = cueId;
   state.selectedWordId = "";
-  renderAll();
+  invalidateAll();
 }
 
 export function renderTabs(): void {

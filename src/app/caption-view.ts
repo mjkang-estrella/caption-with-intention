@@ -2,11 +2,11 @@
 // nodes that computeFrame's state is projected onto.
 
 import type { Cue, CueLayout, FrameState, Viewport } from "../core/types.ts";
-import { computeFrame, layoutCue, layoutSignature } from "../core/renderer.ts";
+import { computeFrame, layoutCue } from "../core/renderer.ts";
 import { CWI_STYLE } from "../core/style.ts";
 import { els } from "./dom.ts";
 import { renderParts } from "./render.ts";
-import { state } from "./store.ts";
+import { projectRevision, state } from "./store.ts";
 
 type StyleProperty = "left" | "top" | "width" | "height" | "color" | "transform" | "fontSize" | "fontWeight" | "fontVariationSettings";
 
@@ -15,7 +15,10 @@ interface LineView {
   words: HTMLElement[];
 }
 
+// Cue layouts for the current project revision and frame size; any project change or resize
+// starts a fresh cache.
 const captionLayouts = new Map<string, CueLayout>();
+let captionLayoutsKey = "";
 const captionMeasureCache = new Map<string, number>();
 const captionView: { key: string; lines: LineView[] } = { key: "", lines: [] };
 const captionStyleCache = new WeakMap<HTMLElement, Partial<Record<StyleProperty, string>>>();
@@ -45,14 +48,11 @@ export function setupCaptionStage(): void {
 
   // Caption geometry is measured against the rendered frame and the loaded Roboto Flex face.
   if (typeof ResizeObserver === "function") {
-    new ResizeObserver(() => {
-      invalidateCaptionLayouts();
-      renderParts("playback");
-    }).observe(els.phoneFrame);
+    new ResizeObserver(() => renderParts("playback")).observe(els.phoneFrame);
   }
   if (document.fonts && document.fonts.ready) {
     document.fonts.load('400 27px "Roboto Flex Local"').catch(() => undefined).then(() => document.fonts.ready).then(() => {
-      invalidateCaptionLayouts(true);
+      invalidateCaptionLayouts();
       renderParts("playback");
     });
   }
@@ -156,18 +156,24 @@ export function captionViewport(): Viewport {
   };
 }
 
-function invalidateCaptionLayouts(clearMeasurements = false): void {
+// Called once the caption font has loaded: earlier measurements used a fallback face.
+function invalidateCaptionLayouts(): void {
   captionLayouts.clear();
-  if (clearMeasurements) captionMeasureCache.clear();
+  captionMeasureCache.clear();
   captionView.key = "";
 }
 
 export function captionLayoutFor(cue: Cue, viewport: Viewport = captionViewport()): CueLayout {
-  const signature = layoutSignature(state.cwi, cue, viewport);
-  const cached = captionLayouts.get(cue.id);
-  if (cached && cached.signature === signature) return cached;
-  const layout = layoutCue(state.cwi, cue, viewport, measureCaptionText);
-  captionLayouts.set(cue.id, layout);
+  const key = `${projectRevision()}:${viewport.width}x${viewport.height}`;
+  if (key !== captionLayoutsKey) {
+    captionLayouts.clear();
+    captionLayoutsKey = key;
+  }
+  let layout = captionLayouts.get(cue.id);
+  if (!layout) {
+    layout = layoutCue(state.cwi, cue, viewport, measureCaptionText);
+    captionLayouts.set(cue.id, layout);
+  }
   return layout;
 }
 

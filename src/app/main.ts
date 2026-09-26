@@ -1,8 +1,8 @@
 // Editor entry point: collect element references, wire every region, and render.
 
 import { els, query, queryAll } from "./dom.ts";
-import { getCue, state } from "./store.ts";
-import { registerRenderer, renderAll } from "./render.ts";
+import { getCue, state, subscribe } from "./store.ts";
+import { invalidate, registerRenderer, renderAll } from "./render.ts";
 import { DEFAULT_MEDIA_SRC } from "./sample-media.ts";
 import { renderCaptionOverlay, setupCaptionStage, setupGuideToggle } from "./caption-view.ts";
 import { currentMediaTime, getCurrentCueAndWord, renderTimeReadout, setupPlaybackControls, setupVideoEvents } from "./playback.ts";
@@ -63,6 +63,8 @@ function init(): void {
   setupInspectorEvents();
   setupInspectorResize();
   setupVideoEvents();
+  // Keep the undo/redo buttons in step with every project change.
+  subscribe(() => invalidate("topbar"));
   renderAll();
 }
 

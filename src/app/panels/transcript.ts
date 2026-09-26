@@ -8,7 +8,7 @@ import { capitalize, escapeAttr, escapeHtml, formatTime } from "../../core/util.
 import { els, queryAll } from "../dom.ts";
 import type { Control } from "../dom.ts";
 import { getCurrentCueAndWord } from "../playback.ts";
-import { getCue, getSpeaker, state } from "../store.ts";
+import { commit, getCue, getSpeaker, state } from "../store.ts";
 
 export function renderTranscriptPanel(): void {
   const current = getCurrentCueAndWord();
@@ -104,15 +104,17 @@ export function updateTranscriptCueFromControl(control: Control): void {
 
   const value = control.value;
   if (control.dataset.transcriptControl === "type") {
-    cue.type = isOneOf(CUE_TYPES, value) ? value : "dialogue";
-    if (cue.type !== "dialogue") {
-      cue.speakerId = "";
-      cue.offCamera = false;
-    } else if (!cue.speakerId && state.cwi.speakers[0]) {
-      cue.speakerId = state.cwi.speakers[0].id;
-    }
+    commit("Cue type", (project) => {
+      cue.type = isOneOf(CUE_TYPES, value) ? value : "dialogue";
+      if (cue.type !== "dialogue") {
+        cue.speakerId = "";
+        cue.offCamera = false;
+      } else if (!cue.speakerId && project.speakers[0]) {
+        cue.speakerId = project.speakers[0].id;
+      }
+    });
   } else if (control.dataset.transcriptControl === "text") {
-    updateCueTextAndWords(state.cwi, cue, String(value));
+    commit("Transcript text", (project) => updateCueTextAndWords(project, cue, String(value)), { coalesceKey: `transcript-text:${cue.id}` });
     refreshTranscriptCueRow(cue);
   }
 
@@ -120,14 +122,19 @@ export function updateTranscriptCueFromControl(control: Control): void {
 }
 
 export function addCueToTranscript(): void {
-  const cue = insertCue(state.cwi, state.selectedCueId);
-  state.selectedCueId = cue.id;
+  let cueId = "";
+  commit("Add cue", (project) => {
+    cueId = insertCue(project, state.selectedCueId).id;
+  });
+  state.selectedCueId = cueId;
   state.selectedWordId = "";
   state.activeTab = "transcript";
 }
 
 export function deleteCueFromTranscript(cueId: string): void {
-  state.selectedCueId = removeCue(state.cwi, cueId);
+  commit("Delete cue", (project) => {
+    state.selectedCueId = removeCue(project, cueId);
+  });
   state.selectedWordId = "";
 }
 

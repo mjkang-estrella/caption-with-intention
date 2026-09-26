@@ -13,9 +13,9 @@ import { MAX_ANALYSIS_BYTES } from "./constants.ts";
 import { els } from "./dom.ts";
 import { qaContext } from "./panels/qa.ts";
 import { getDuration } from "./playback.ts";
-import { renderAll, renderParts } from "./render.ts";
+import { invalidate, invalidateAll } from "./render.ts";
 import { announceStatus } from "./status.ts";
-import { state } from "./store.ts";
+import { commit, loadProject, state, touchProject } from "./store.ts";
 
 // Takes the chosen file from a file input and clears it so the same file can be picked again.
 function takeFile(event: Event): File | null {
@@ -34,7 +34,7 @@ function showImportError(message: string): void {
   state.importWarnings = [];
   state.activeTab = "qa";
   announceStatus(state.importError);
-  renderAll();
+  invalidateAll();
 }
 
 export function handleMediaInput(event: Event): void {
@@ -44,7 +44,7 @@ export function handleMediaInput(event: Event): void {
   if (state.mediaObjectUrl) URL.revokeObjectURL(state.mediaObjectUrl);
   state.mediaObjectUrl = URL.createObjectURL(file);
   state.mediaFile = file;
-  state.cwi = createEmptyProject({ fileName: file.name, duration: els.video.duration, aspectRatio: state.cwi.project.aspectRatio, frameRate: state.cwi.project.frameRate });
+  loadProject(createEmptyProject({ fileName: file.name, duration: els.video.duration, aspectRatio: state.cwi.project.aspectRatio, frameRate: state.cwi.project.frameRate }));
   state.selectedCueId = "";
   state.selectedWordId = "";
   state.selectedSpeakerId = "";
@@ -59,8 +59,8 @@ export function handleMediaInput(event: Event): void {
   els.video.load();
   state.importError = "";
   state.importWarnings = [];
-  renderAll();
-  loadMediaAudio(file).then(() => renderParts("timeline"));
+  invalidateAll();
+  loadMediaAudio(file).then(() => invalidate("timeline"));
 }
 
 export async function handleCaptionInput(event: Event): Promise<void> {
@@ -71,14 +71,14 @@ export async function handleCaptionInput(event: Event): Promise<void> {
     const subtitleCues = parseSubtitleFile(await file.text(), file.name);
     if (!subtitleCues.length) throw new Error("No subtitle cues were found in the selected file.");
 
-    state.cwi = createProjectFromSubtitleCues(subtitleCues, file.name, { ...state.cwi.project, duration: state.cwi.project.duration || getDuration() });
+    loadProject(createProjectFromSubtitleCues(subtitleCues, file.name, { ...state.cwi.project, duration: state.cwi.project.duration || getDuration() }));
     state.selectedCueId = state.cwi.cues[0] ? state.cwi.cues[0].id : "";
     state.selectedWordId = "";
     state.activeTab = "qa";
     state.importError = "";
     state.importWarnings = [];
     announceStatus(`Imported ${subtitleCues.length} caption cues from ${file.name}.`);
-    renderAll();
+    invalidateAll();
     await applyLocalVolumeAnalysis();
   } catch (error) {
     showImportError(errorMessage(error, "The selected caption file could not be imported."));
@@ -92,24 +92,25 @@ export async function handleJsonInput(event: Event): Promise<void> {
   try {
     const parsed: unknown = JSON.parse(await file.text());
     state.importWarnings = findMissingImportedFields(parsed);
-    state.cwi = normalizeProject(parsed, state.cwi.project);
+    loadProject(normalizeProject(parsed, state.cwi.project));
     state.autoAspect = false;
     state.selectedCueId = state.cwi.cues[0] ? state.cwi.cues[0].id : "";
     state.selectedWordId = "";
     state.activeTab = "qa";
     state.importError = "";
     announceStatus(`Imported CWI JSON with ${state.cwi.cues.length} cues.`);
-    renderAll();
+    invalidateAll();
   } catch (error) {
     showImportError(errorMessage(error, "The selected JSON file could not be imported."));
   }
 }
 
 async function applyLocalVolumeAnalysis(): Promise<void> {
-  const skip = (note: string, status: string) => {
-    addReviewNote(state.cwi, note);
+  const note = (text: string) => touchProject((project) => addReviewNote(project, text));
+  const skip = (text: string, status: string) => {
+    note(text);
     announceStatus(status);
-    renderAll();
+    invalidateAll();
   };
 
   if (!state.mediaFile) {
@@ -130,18 +131,21 @@ async function applyLocalVolumeAnalysis(): Promise<void> {
     const audioBuffer = await loadMediaAudio(state.mediaFile);
     if (!audioBuffer) throw new Error("The browser could not decode this media's audio.");
     const analysis = analyzeWordVolumes(audioBuffer, state.cwi.cues);
-    analysis.words.forEach((item) => {
-      item.word.volumePercent = item.volumePercent;
+    // Undoable, so the creator can return to neutral sizes if the analysis misjudges the mix.
+    commit("Volume analysis", () => {
+      analysis.words.forEach((item) => {
+        item.word.volumePercent = item.volumePercent;
+      });
     });
     const emphasized = analysis.words.filter((item) => item.volumePercent !== NEUTRAL_VOLUME).length;
-    addReviewNote(state.cwi, `Local audio analysis compared ${analysis.words.length} words with the ${Number.isFinite(analysis.referenceDb) ? `${analysis.referenceDb.toFixed(1)} dBFS` : "unmeasured"} median speech level; ${emphasized} words were marked louder or softer than normal.`);
+    note(`Local audio analysis compared ${analysis.words.length} words with the ${Number.isFinite(analysis.referenceDb) ? `${analysis.referenceDb.toFixed(1)} dBFS` : "unmeasured"} median speech level; ${emphasized} words were marked louder or softer than normal.`);
     announceStatus(`Audio analysis marked ${emphasized} words as louder or softer than normal speech.`);
   } catch (error) {
-    addReviewNote(state.cwi, `Audio analysis failed; neutral volume values were kept. ${errorMessage(error, String(error))}`);
+    note(`Audio analysis failed; neutral volume values were kept. ${errorMessage(error, String(error))}`);
     announceStatus("Audio analysis failed. Neutral volume values were kept.");
   }
 
-  renderAll();
+  invalidateAll();
 }
 
 function loadMediaAudio(file: File): Promise<AudioBuffer | null> {

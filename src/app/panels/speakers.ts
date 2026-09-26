@@ -6,7 +6,7 @@ import { SPEAKER_PALETTE } from "../../core/style.ts";
 import { escapeAttr, escapeHtml } from "../../core/util.ts";
 import { controlValue, els } from "../dom.ts";
 import type { Control } from "../dom.ts";
-import { getSpeaker, roleLabel, state } from "../store.ts";
+import { commit, getSpeaker, roleLabel, state } from "../store.ts";
 
 export function renderSpeakersPanel(): void {
   els.sideContent.innerHTML = `
@@ -92,20 +92,31 @@ export function updateSpeakerFromControl(control: Control): void {
   if (!speaker) return;
 
   const value = controlValue(control);
-  if (control.dataset.speakerControl === "name") {
-    speaker.name = String(value).trim() || "Unnamed speaker";
-  } else if (control.dataset.speakerControl === "role") {
-    speaker.role = isOneOf(SPEAKER_ROLES, value) ? value : "supporting";
-    if (!colorFitsRole(speaker.color, speaker.role)) speaker.color = nextSpeakerColor(state.cwi, speaker.role);
-  } else if (control.dataset.speakerControl === "color") {
-    speaker.color = String(value);
-  } else if (control.dataset.speakerControl === "defaultOffCamera") {
-    speaker.defaultOffCamera = Boolean(value);
-  }
+  const field = control.dataset.speakerControl || "";
+  commit(SPEAKER_FIELD_LABELS[field] || "Character", (project) => {
+    if (field === "name") {
+      speaker.name = String(value).trim() || "Unnamed speaker";
+    } else if (field === "role") {
+      speaker.role = isOneOf(SPEAKER_ROLES, value) ? value : "supporting";
+      if (!colorFitsRole(speaker.color, speaker.role)) speaker.color = nextSpeakerColor(project, speaker.role);
+    } else if (field === "color") {
+      speaker.color = String(value);
+    } else if (field === "defaultOffCamera") {
+      speaker.defaultOffCamera = Boolean(value);
+    }
+  }, { coalesceKey: `speaker-${field}:${speaker.id}` });
 }
 
+const SPEAKER_FIELD_LABELS: Record<string, string> = {
+  name: "Character name",
+  role: "Character class",
+  color: "Attribution color",
+  defaultOffCamera: "Off-camera default"
+};
+
 export function addSpeakerToProject(): void {
-  const speaker = addSpeaker(state.cwi);
-  state.selectedSpeakerId = speaker.id;
+  commit("Add character", (project) => {
+    state.selectedSpeakerId = addSpeaker(project).id;
+  });
   state.activeTab = "speakers";
 }

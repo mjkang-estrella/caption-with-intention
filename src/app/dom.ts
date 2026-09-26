@@ -31,6 +31,8 @@ export interface Elements {
   captionButton: HTMLElement;
   importJsonButton: HTMLElement;
   exportJsonButton: HTMLElement;
+  undoButton: HTMLButtonElement;
+  redoButton: HTMLButtonElement;
 }
 
 export const els = {} as Elements;

@@ -3,8 +3,8 @@ import { liveCues } from "../core/renderer.ts";
 import { nearestAspectRatio } from "../core/schema.ts";
 import { clamp, formatTime, roundTime } from "../core/util.ts";
 import { els } from "./dom.ts";
-import { renderAll, renderParts } from "./render.ts";
-import { state } from "./store.ts";
+import { invalidateAll, renderParts } from "./render.ts";
+import { state, touchProject } from "./store.ts";
 
 // Preview video: transport controls, the playback clock, and seeking.
 
@@ -19,13 +19,16 @@ export function setupPlaybackControls(): void {
 
 export function setupVideoEvents(): void {
   els.video.addEventListener("loadedmetadata", () => {
-    if (Number.isFinite(els.video.duration) && els.video.duration > 0) {
-      state.cwi.project.duration = roundTime(els.video.duration);
-    }
-    if (state.autoAspect && els.video.videoWidth && els.video.videoHeight) {
-      state.cwi.project.aspectRatio = nearestAspectRatio(els.video.videoWidth, els.video.videoHeight);
-    }
-    renderAll();
+    // Media metadata is bookkeeping, not an edit, so it bypasses undo.
+    touchProject((project) => {
+      if (Number.isFinite(els.video.duration) && els.video.duration > 0) {
+        project.project.duration = roundTime(els.video.duration);
+      }
+      if (state.autoAspect && els.video.videoWidth && els.video.videoHeight) {
+        project.project.aspectRatio = nearestAspectRatio(els.video.videoWidth, els.video.videoHeight);
+      }
+    });
+    invalidateAll();
   });
   els.video.addEventListener("timeupdate", () => {
     if (!els.video.paused) state.previewTimeOverride = null;
@@ -55,7 +58,7 @@ function togglePlayback(): void {
     els.video.play().catch(() => {
       state.importError = "Preview playback was blocked by the browser.";
       state.activeTab = "qa";
-      renderAll();
+      invalidateAll();
     });
   } else {
     els.video.pause();

@@ -9,6 +9,7 @@ The current app is a static TypeScript/CSS prototype. It loads a bundled sample 
 - Local video preview with a CWI caption overlay that follows the After Effects template rig, in 16:9, 9:16, or 1:1 frames.
 - Transcript, speaker, and QA panels.
 - Inspector controls for cue timing, speaker assignment, per-word motion (word pop, syllable pop, none), volume size, loud bursts, tone (weight and width), line breaks, off-camera styling, and per-cue exceptions.
+- Undo and redo for project edits (buttons in the top bar, ⌘/Ctrl+Z and ⇧⌘/Ctrl+Shift+Z outside text fields).
 - Local media import through browser object URLs.
 - SRT and WebVTT caption import for creating editable CWI cues from user media.
 - CWI JSON import/export for round-tripping editable project state.
@@ -66,6 +67,8 @@ Recommended Vercel settings:
 ## Development notes
 
 Edit TypeScript in `src/`, then run `npm run build` so `dist/app.js` stays in sync with the static HTML page.
+
+Project changes go through `src/app/store.ts`: `commit(label, mutate, { coalesceKey })` for undoable edits (rapid edits with the same key, such as a slider drag, undo as one step), `touchProject` for bookkeeping such as media metadata, and `loadProject` for a new or imported project. Each change bumps the project revision that caches key on. Regions redraw through `src/app/render.ts`: `invalidate(...)` batches redraws into the next animation frame; `renderParts(...)` draws immediately.
 
 Caption styling and motion values live in `CWI_STYLE` (`src/core/style.ts`). The defaults follow the After Effects template in `reference/AE PROJECT/`: 27 px type on a 1080 px frame (2.5% of height), #DDDDDD read-ahead text, an 80% black box padded 30 px per side and 20 px top and bottom, a 5 px lift on the word being spoken, and a 2 px dip on the next word. The guideline doc fills in what the template does not define: volume sizing from 3% to 12%, pitch-driven weight and width, off-camera slant, music notes, and two-line stacking. Change a token rather than adding numbers to the renderer.
 

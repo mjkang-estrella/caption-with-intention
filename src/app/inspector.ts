@@ -9,8 +9,8 @@ import { CWI_STYLE, NEUTRAL_VOLUME, sliderFromTone, toneForPitchHz, toneFromSlid
 import { capitalize, clamp, escapeAttr, escapeHtml, roundTime, toNumber } from "../core/util.ts";
 import { closestElement, controlValue, els, eventElement } from "./dom.ts";
 import type { Control } from "./dom.ts";
-import { renderAll, renderParts } from "./render.ts";
-import { getSelectedCue, getSelectedWord, getSpeaker, roleLabel, selectAdjacentWord, state } from "./store.ts";
+import { flush, invalidate, invalidateAll } from "./render.ts";
+import { commit, getSelectedCue, getSelectedWord, getSpeaker, roleLabel, selectAdjacentWord, state } from "./store.ts";
 
 export function setupInspectorEvents(): void {
   // While typing or dragging, update everything except the inspector itself so focus stays put.
@@ -19,7 +19,7 @@ export function setupInspectorEvents(): void {
     if (!control || !control.dataset.control || control.dataset.commit === "change") return;
     applyInspectorControl(control);
     syncInspectorTitle();
-    renderParts("side", "timeline", "playback");
+    invalidate("topbar", "side", "timeline", "playback");
     updateRangeOutputs();
   });
 
@@ -27,7 +27,7 @@ export function setupInspectorEvents(): void {
     const control = eventElement(event) as Control | null;
     if (!control || !control.dataset.control) return;
     applyInspectorControl(control);
-    renderAll();
+    invalidateAll();
   });
 
   els.inspector.addEventListener("click", (event) => {
@@ -46,14 +46,14 @@ export function setupInspectorEvents(): void {
     if (wordPick) {
       state.selectedCueId = wordPick.dataset.cueId || "";
       state.selectedWordId = wordPick.dataset.inspectorWordId || "";
-      renderAll();
+      invalidateAll();
       return;
     }
 
     const wordNav = closestElement(event, "[data-word-nav]");
     if (wordNav) {
       selectAdjacentWord(Number(wordNav.dataset.wordNav));
-      renderAll();
+      invalidateAll();
       return;
     }
 
@@ -61,8 +61,10 @@ export function setupInspectorEvents(): void {
     if (preset) {
       const word = getSelectedWord();
       if (word) {
-        word.volumePercent = Number(preset.dataset.volumePreset);
-        renderAll();
+        commit("Vocal emphasis", () => {
+          word.volumePercent = Number(preset.dataset.volumePreset);
+        });
+        invalidateAll();
       }
       return;
     }
@@ -229,12 +231,15 @@ function toggleSpeakerSelector(): void {
 function selectCueSpeaker(speakerId: string): void {
   const cue = getSelectedCue();
   if (cue && cue.type === "dialogue") {
-    cue.speakerId = speakerId;
-    cue.offCamera = Boolean(getSpeaker(cue.speakerId)?.defaultOffCamera);
+    commit("Cue speaker", () => {
+      cue.speakerId = speakerId;
+      cue.offCamera = Boolean(getSpeaker(cue.speakerId)?.defaultOffCamera);
+    });
   }
   state.speakerSelectorOpen = false;
   state.activeSpeakerOptionId = "";
-  renderAll();
+  invalidateAll();
+  flush();
   els.inspector.querySelector<HTMLElement>("[data-speaker-trigger]")?.focus();
 }
 
@@ -419,11 +424,41 @@ function renderWordEditor(cue: Cue, word: Word | null): string {
   `;
 }
 
+const CONTROL_LABELS: Record<string, string> = {
+  "cue-start": "Cue start",
+  "cue-end": "Cue end",
+  "cue-text": "Cue text",
+  "cue-speaker": "Cue speaker",
+  "word-text": "Word text",
+  "word-start": "Word start",
+  "word-end": "Word end",
+  volume: "Volume size",
+  "word-burst": "Loud burst",
+  "word-motion": "Word motion",
+  "word-syllables": "Syllables",
+  "word-break": "Line break",
+  tone: "Tone",
+  "pitch-weight": "Weight",
+  "pitch-width": "Width",
+  "pitch-hz": "Pitch",
+  "off-camera": "Off-camera voice",
+  "exception-color": "Scene exception",
+  "exception-motion": "Scene exception",
+  "exception-intonation": "Scene exception"
+};
+
+// Records one undoable edit per control; a slider drag or a run of typing undoes as one step.
 function applyInspectorControl(control: Control): void {
   const cue = getSelectedCue();
-  const word = getSelectedWord();
   if (!cue) return;
+  const key = control.dataset.control || "";
+  const word = getSelectedWord();
+  commit(CONTROL_LABELS[key] || "Edit", () => applyControl(control, cue, word), {
+    coalesceKey: `${key}:${cue.id}:${word ? word.id : ""}`
+  });
+}
 
+function applyControl(control: Control, cue: Cue, word: Word | null): void {
   const value = controlValue(control);
   const exception = normalizeException(cue.exception);
 
