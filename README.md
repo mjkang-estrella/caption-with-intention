@@ -51,14 +51,14 @@ Recommended Vercel settings:
 ## Project layout
 
 - `index.html`: static app shell and initial markup.
-- `src/core/`: DOM-free logic, type-checked in strict mode and tested directly with Node.
+- `src/core/`: DOM-free logic, tested directly with Node.
   - `types.ts`: the `cwi.json` schema and renderer data types.
   - `style.ts`: CWI style tokens (sizes, motion, box, layout per aspect ratio), speaker palette, volume and tone mappings.
   - `schema.ts`: schema constants and the normalizer that migrates v1 files and fills defaults.
   - `renderer.ts`: pure caption renderer, `(project, time, viewport) -> frame state`.
   - `edit.ts`, `subtitles.ts`, `audio-analysis.ts`, `qa.ts`: editing rules, SRT/WebVTT import, local volume analysis, and QA checks.
   - `sample.cwi.json`: the bundled sample project.
-- `src/app.ts` and `src/app/`: editor UI and the DOM view that projects frame state onto persistent caption nodes.
+- `src/app/`: the editor UI. `main.ts` wires everything; `store.ts` holds editor state; `render.ts` is the registry each region redraws through; `caption-view.ts` projects frame state onto persistent caption nodes; `playback.ts`, `timeline.ts`, `inspector.ts`, `side-panel.ts`, `panels/`, `media.ts`, and `topbar.ts` own their regions.
 - `dist/`: generated browser bundle loaded by `index.html` (not committed).
 - `reference/`: product spec, CWI guidelines, source PDFs, Roboto Flex font, After Effects assets, and sample media.
 - `.omx/`: local orchestration/runtime state, ignored by Git.

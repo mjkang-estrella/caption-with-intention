@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/app.ts --bundle --format=iife --target=es2020 --outfile=dist/app.js",
-    "dev": "esbuild src/app.ts --bundle --format=iife --target=es2020 --outfile=dist/app.js --watch",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.strict.json",
+    "build": "esbuild src/app/main.ts --bundle --format=iife --target=es2020 --outfile=dist/app.js",
+    "dev": "esbuild src/app/main.ts --bundle --format=iife --target=es2020 --outfile=dist/app.js --watch",
+    "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.ts"
   },
   "devDependencies": {
