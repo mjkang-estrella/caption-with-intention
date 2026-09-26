@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outFile": ".test-build/cwi-core.js"
+  },
+  "files": ["src/model.ts", "src/cwi-spec.ts", "src/renderer.ts"]
+}

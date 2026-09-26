@@ -1,7 +1,7 @@
     (() => {
 
       const state = {
-        cwi: createSampleProject(),
+        cwi: cwiNormalizeProject(createSampleProject()),
         activeTab: "transcript",
         selectedCueId: "cue-riverside-drive",
         selectedWordId: "",
@@ -15,10 +15,22 @@
         speakerSelectorOpen: false,
         activeSpeakerOptionId: "",
         previewTimeOverride: null,
-        statusMessage: ""
+        statusMessage: "",
+        audioBuffer: null,
+        audioSource: null,
+        audioPromise: null,
+        waveform: null,
+        autoAspect: false,
+        reducedMotion: false,
+        showGuides: false,
+        frameAnchor: null
       };
 
       const els: Record<string, any> = {};
+      const captionLayouts = new Map();
+      const captionMeasureCache = new Map();
+      const captionView = { key: "", lines: [] };
+      const captionStyleCache = new WeakMap();
 
       document.addEventListener("DOMContentLoaded", init);
 
@@ -49,6 +61,7 @@
         els.video.src = DEFAULT_MEDIA_SRC;
         els.video.muted = false;
         els.video.volume = 0.85;
+        setupCaptionStage();
         setupTopActions();
         setupTabs();
         setupPlaybackControls();
@@ -60,8 +73,48 @@
         renderAll();
       }
 
+      function setupCaptionStage() {
+        els.phoneFrame = document.querySelector(".phone-frame");
+        els.captionSafe.innerHTML = "";
+        els.captionGuide = document.createElement("div");
+        els.captionGuide.className = "caption-guide";
+        els.captionGuide.setAttribute("aria-hidden", "true");
+        els.captionGuide.hidden = !state.showGuides;
+        els.captionSafe.appendChild(els.captionGuide);
+
+        els.captionMeasure = document.createElement("span");
+        els.captionMeasure.className = "caption-measure";
+        els.captionMeasure.setAttribute("aria-hidden", "true");
+        document.body.appendChild(els.captionMeasure);
+
+        const motionQuery = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+        if (motionQuery) {
+          state.reducedMotion = motionQuery.matches;
+          const onMotionChange = () => {
+            state.reducedMotion = motionQuery.matches;
+            renderPlayback();
+          };
+          if (typeof motionQuery.addEventListener === "function") motionQuery.addEventListener("change", onMotionChange);
+        }
+
+        // Caption geometry is measured against the rendered frame and the loaded Roboto Flex face.
+        if (typeof ResizeObserver === "function") {
+          new ResizeObserver(() => {
+            invalidateCaptionLayouts();
+            renderPlayback();
+          }).observe(els.phoneFrame);
+        }
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.load('400 27px "Roboto Flex Local"').catch(() => undefined).then(() => document.fonts.ready).then(() => {
+            invalidateCaptionLayouts(true);
+            renderPlayback();
+          });
+        }
+      }
+
       function setupTopActions() {
         els.topActions.innerHTML = [
+          `<label class="aspect-select"><span class="visually-hidden">Frame aspect ratio</span><select class="control-select" id="aspectSelect" aria-label="Frame aspect ratio">${CWI_ASPECT_RATIOS.map((aspect) => `<option value="${aspect}">${aspect}</option>`).join("")}</select></label>`,
           '<button type="button" class="text-button" id="mediaButton">Media</button>',
           '<button type="button" class="text-button" id="captionButton">Import Captions</button>',
           '<button type="button" class="text-button" id="importJsonButton">Import CWI JSON</button>',
@@ -78,7 +131,13 @@
         els.captionButton = document.getElementById("captionButton");
         els.importJsonButton = document.getElementById("importJsonButton");
         els.exportJsonButton = document.getElementById("exportJsonButton");
+        els.aspectSelect = document.getElementById("aspectSelect");
 
+        els.aspectSelect.addEventListener("change", () => {
+          state.cwi.project.aspectRatio = CWI_ASPECT_RATIOS.includes(els.aspectSelect.value) ? els.aspectSelect.value : "16:9";
+          state.autoAspect = false;
+          renderAll();
+        });
         els.mediaButton.addEventListener("click", () => els.mediaInput.click());
         els.captionButton.addEventListener("click", () => els.captionInput.click());
         els.importJsonButton.addEventListener("click", () => els.jsonInput.click());
@@ -112,12 +171,21 @@
         forwardButton.addEventListener("click", () => stepPlayback(0.25));
         els.soundButton.addEventListener("click", toggleSound);
         setSoundButton();
+        els.guideButton = document.querySelector(".guide-button");
+        els.guideButton.addEventListener("click", () => {
+          state.showGuides = !state.showGuides;
+          setGuideButton();
+        });
+        setGuideButton();
       }
 
       function setupVideoEvents() {
         els.video.addEventListener("loadedmetadata", () => {
           if (Number.isFinite(els.video.duration) && els.video.duration > 0) {
             state.cwi.project.duration = roundTime(els.video.duration);
+          }
+          if (state.autoAspect && els.video.videoWidth && els.video.videoHeight) {
+            state.cwi.project.aspectRatio = cwiNearestAspectRatio(els.video.videoWidth, els.video.videoHeight);
           }
           renderAll();
         });
@@ -135,7 +203,7 @@
             state.previewTimeOverride = null;
           }
           setPlayButton();
-          requestAnimationFrame(playbackLoop);
+          startPlaybackLoop();
         });
         els.video.addEventListener("pause", setPlayButton);
         els.video.addEventListener("ended", setPlayButton);
@@ -271,7 +339,7 @@
 
       function setupInspectorEvents() {
         els.inspector.addEventListener("input", (event) => {
-          if (!event.target.dataset.control) return;
+          if (!event.target.dataset.control || event.target.dataset.commit === "change") return;
           applyInspectorControl(event.target);
           syncInspectorTitle();
           renderPlayback();
@@ -427,12 +495,18 @@
         state.selectedSpeakerId = "";
         state.activeTab = "transcript";
         state.previewTimeOverride = null;
+        state.audioBuffer = null;
+        state.audioSource = null;
+        state.audioPromise = null;
+        state.waveform = null;
+        state.autoAspect = true;
         els.video.src = state.mediaObjectUrl;
         els.video.load();
         state.importError = "";
         state.importWarnings = [];
         renderAll();
         event.target.value = "";
+        loadMediaAudio(file).then(() => renderTimeline());
       }
 
       function handleCaptionInput(event) {
@@ -478,7 +552,8 @@
           try {
             const parsed = JSON.parse(String(reader.result || ""));
             state.importWarnings = findMissingImportedFields(parsed);
-            state.cwi = normalizeImportedProject(parsed);
+            state.cwi = cwiNormalizeProject(parsed, state.cwi.project);
+            state.autoAspect = false;
             state.selectedCueId = state.cwi.cues[0] ? state.cwi.cues[0].id : "";
             state.selectedWordId = "";
             state.activeTab = "qa";
@@ -500,12 +575,14 @@
 
       function createEmptyProjectForMedia(file) {
         return {
+          schemaVersion: CWI_SCHEMA_VERSION,
           project: {
             id: `cwi-${slugify(file.name || "local-media")}`,
             title: fileNameStem(file.name || "Local Media"),
             aspectRatio: state.cwi.project.aspectRatio || "16:9",
             mediaName: file.name || "Local media",
-            duration: Number.isFinite(els.video.duration) && els.video.duration > 0 ? roundTime(els.video.duration) : 0
+            duration: Number.isFinite(els.video.duration) && els.video.duration > 0 ? roundTime(els.video.duration) : 0,
+            frameRate: state.cwi.project.frameRate || CWI_DEFAULT_FRAME_RATE
           },
           speakers: [createUnknownSpeaker()],
           cues: [],
@@ -607,7 +684,7 @@
         const unknownSpeaker = createUnknownSpeaker();
         const cues = subtitleCues.map((subtitleCue, index) => {
           const cueType = cueTypeForSubtitleText(subtitleCue.text);
-          const text = stripCueDecorators(subtitleCue.text);
+          const text = cwiStripDecorators(subtitleCue.text).trim();
           const cue = {
             id: `cue-${index + 1}`,
             type: cueType,
@@ -616,7 +693,7 @@
             end: subtitleCue.end,
             text,
             lineBreakAfterWordIds: [],
-            exception: false,
+            exception: { color: false, motion: false, intonation: false },
             offCamera: false,
             words: []
           };
@@ -625,17 +702,19 @@
         });
 
         return {
+          schemaVersion: CWI_SCHEMA_VERSION,
           project: {
             id: `cwi-${slugify(fileNameStem(state.cwi.project.mediaName || captionFileName || "imported-media"))}`,
             title: state.cwi.project.title || fileNameStem(captionFileName || "Imported Captions"),
             aspectRatio: state.cwi.project.aspectRatio || "16:9",
             mediaName: state.cwi.project.mediaName || "Local media",
-            duration: state.cwi.project.duration || getDuration()
+            duration: state.cwi.project.duration || getDuration(),
+            frameRate: state.cwi.project.frameRate || CWI_DEFAULT_FRAME_RATE
           },
           speakers: [unknownSpeaker],
           cues,
           review: {
-            notes: [`Imported ${cues.length} cues from ${captionFileName || "caption file"}. Speaker identity is set to Unknown Speaker until manually corrected.`],
+            notes: [`Imported ${cues.length} cues from ${captionFileName || "caption file"}. Speaker identity is set to Unknown Speaker and word timing is estimated from each cue until manually aligned.`],
             validationStatus: "unchecked"
           }
         };
@@ -643,8 +722,8 @@
 
       function cueTypeForSubtitleText(text) {
         const value = String(text || "").trim();
+        if (/^[\u266a\u266b]|[\u266a\u266b]$/.test(value)) return "music";
         if (/^\[.+\]$/.test(value)) return "sound";
-        if (/^\u266a|^\u266b|\u266a$|\u266b$/.test(value)) return "music";
         return "dialogue";
       }
 
@@ -656,7 +735,7 @@
           return;
         }
 
-        if (state.mediaFile.size > 120 * 1024 * 1024) {
+        if (state.mediaFile.size > MAX_ANALYSIS_BYTES) {
           addReviewNote("Audio analysis skipped because the uploaded media is over 120 MB; neutral volume values were kept.");
           announceStatus("Audio analysis skipped for large media. Neutral volume values were kept.");
           renderAll();
@@ -672,16 +751,15 @@
 
         try {
           announceStatus("Analyzing local audio for initial volume emphasis.");
-          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-          if (!AudioContextClass) throw new Error("AudioContext is unavailable in this browser.");
-          const audioContext = new AudioContextClass();
-          const arrayBuffer = await state.mediaFile.arrayBuffer();
-          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
-          const analysis = analyzeCueVolumes(audioBuffer, state.cwi.cues);
-          applyCueVolumeAnalysis(analysis);
-          addReviewNote(`Local audio analysis set initial volume emphasis for ${analysis.length} cues.`);
-          announceStatus(`Audio analysis set initial volume emphasis for ${analysis.length} cues.`);
-          if (typeof audioContext.close === "function") audioContext.close();
+          const audioBuffer = await loadMediaAudio(state.mediaFile);
+          if (!audioBuffer) throw new Error("The browser could not decode this media's audio.");
+          const analysis = analyzeWordVolumes(audioBuffer, state.cwi.cues);
+          analysis.words.forEach((item) => {
+            item.word.volumePercent = item.volumePercent;
+          });
+          const emphasized = analysis.words.filter((item) => item.volumePercent !== CWI_NEUTRAL_VOLUME).length;
+          addReviewNote(`Local audio analysis compared ${analysis.words.length} words with the ${Number.isFinite(analysis.referenceDb) ? `${analysis.referenceDb.toFixed(1)} dBFS` : "unmeasured"} median speech level; ${emphasized} words were marked louder or softer than normal.`);
+          announceStatus(`Audio analysis marked ${emphasized} words as louder or softer than normal speech.`);
         } catch (error) {
           addReviewNote(`Audio analysis failed; neutral volume values were kept. ${error.message || error}`);
           announceStatus("Audio analysis failed. Neutral volume values were kept.");
@@ -690,26 +768,62 @@
         renderAll();
       }
 
-      function analyzeCueVolumes(audioBuffer, cues) {
-        const rmsValues = cues.map((cue) => cueRms(audioBuffer, cue.start, cue.end));
-        const finiteValues = rmsValues.filter((value) => Number.isFinite(value));
-        if (!finiteValues.length) return cues.map((cue, index) => ({ cueId: cue.id, rms: rmsValues[index], volumePercent: 55 }));
+      function loadMediaAudio(file) {
+        if (!file || file.size > MAX_ANALYSIS_BYTES) return Promise.resolve(null);
+        if (state.audioBuffer && state.audioSource === file) return Promise.resolve(state.audioBuffer);
+        if (state.audioPromise && state.audioSource === file) return state.audioPromise;
 
-        const low = percentile(finiteValues, 0.1);
-        const high = percentile(finiteValues, 0.9);
-        const spread = Math.max(0.000001, high - low);
-        return cues.map((cue, index) => {
-          const rms = rmsValues[index];
-          const normalized = Number.isFinite(rms) ? clamp((rms - low) / spread, 0, 1) : 0.5;
-          return {
-            cueId: cue.id,
-            rms,
-            volumePercent: Math.round(20 + normalized * 70)
-          };
-        });
+        state.audioSource = file;
+        state.audioPromise = (async () => {
+          try {
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            if (!AudioContextClass) return null;
+            const audioContext = new AudioContextClass();
+            const audioBuffer = await audioContext.decodeAudioData((await file.arrayBuffer()).slice(0));
+            if (typeof audioContext.close === "function") audioContext.close();
+            if (state.mediaFile !== file) return null;
+            state.audioBuffer = audioBuffer;
+            state.waveform = computeWaveform(audioBuffer);
+            return audioBuffer;
+          } catch {
+            return null;
+          }
+        })();
+        return state.audioPromise;
       }
 
-      function cueRms(audioBuffer, start, end) {
+      // Per-word loudness relative to the median speech level. Words inside the dead zone stay at
+      // the normal 5% size so that ordinary speech returns to the baseline (doc QA checklist).
+      function analyzeWordVolumes(audioBuffer, cues) {
+        const entries = cues.flatMap((cue) => (cue.words || []).map((word) => ({
+          cue,
+          word,
+          db: rmsDb(audioBuffer, word.start, word.end)
+        })));
+        const speech = entries
+          .filter((entry) => entry.cue.type === "dialogue" && Number.isFinite(entry.db) && entry.db > CWI_ANALYSIS.silenceDb)
+          .map((entry) => entry.db);
+        const referenceDb = speech.length ? percentile(speech, 0.5) : NaN;
+        return {
+          referenceDb,
+          words: entries.map((entry) => ({ word: entry.word, volumePercent: volumePercentForDbOffset(entry.db - referenceDb) }))
+        };
+      }
+
+      function volumePercentForDbOffset(offsetDb) {
+        if (!Number.isFinite(offsetDb)) return CWI_NEUTRAL_VOLUME;
+        const beyondDeadZone = Math.abs(offsetDb) - CWI_ANALYSIS.volumeDeadZoneDb;
+        if (beyondDeadZone <= 0) return CWI_NEUTRAL_VOLUME;
+        const amount = clamp(beyondDeadZone / (CWI_ANALYSIS.volumeFullScaleDb - CWI_ANALYSIS.volumeDeadZoneDb), 0, 1);
+        return Math.round(CWI_NEUTRAL_VOLUME + Math.sign(offsetDb) * amount * (100 - CWI_NEUTRAL_VOLUME));
+      }
+
+      function rmsDb(audioBuffer, start, end) {
+        const rms = windowRms(audioBuffer, start, end);
+        return Number.isFinite(rms) && rms > 0 ? 20 * Math.log10(rms) : NaN;
+      }
+
+      function windowRms(audioBuffer, start, end) {
         const sampleRate = audioBuffer.sampleRate;
         const startSample = Math.max(0, Math.floor(Number(start) * sampleRate));
         const endSample = Math.min(audioBuffer.length, Math.ceil(Number(end) * sampleRate));
@@ -728,15 +842,13 @@
         return count ? Math.sqrt(sum / count) : NaN;
       }
 
-      function applyCueVolumeAnalysis(analysis) {
-        const byCueId = new Map(analysis.map((item) => [item.cueId, item]));
-        state.cwi.cues.forEach((cue) => {
-          const item: any = byCueId.get(cue.id);
-          if (!item) return;
-          (cue.words || []).forEach((word) => {
-            word.volumePercent = item.volumePercent;
-          });
-        });
+      function computeWaveform(audioBuffer) {
+        const duration = audioBuffer.length / audioBuffer.sampleRate;
+        const bars = clamp(Math.ceil(duration * WAVEFORM_BARS_PER_SECOND), 1, 4000);
+        const values = Array.from({ length: bars }, (_, index) => windowRms(audioBuffer, (index * duration) / bars, ((index + 1) * duration) / bars) || 0);
+        const peak = Math.max(...values, 0.000001);
+        // Match the scale of the bundled sample waveform (loudest bar about 0.5).
+        return values.map((value) => Math.round((value / peak) * 500) / 1000);
       }
 
       function percentile(values, ratio) {
@@ -801,19 +913,44 @@
         renderPlayback();
       }
 
+      // Captions render at display rate. When the browser reports presented video frames, anchor
+      // caption time to the frame on screen instead of the coarser currentTime.
+      function startPlaybackLoop() {
+        state.frameAnchor = null;
+        if (typeof els.video.requestVideoFrameCallback === "function") {
+          const onVideoFrame = (_now, metadata) => {
+            state.frameAnchor = { mediaTime: metadata.mediaTime, wallTime: performance.now() };
+            if (!els.video.paused && !els.video.ended) els.video.requestVideoFrameCallback(onVideoFrame);
+          };
+          els.video.requestVideoFrameCallback(onVideoFrame);
+        }
+        requestAnimationFrame(playbackLoop);
+      }
+
       function playbackLoop() {
         renderPlayback();
         if (!els.video.paused && !els.video.ended) requestAnimationFrame(playbackLoop);
+        else state.frameAnchor = null;
       }
 
       function renderAll() {
         ensureSelection();
+        renderStageFrame();
         renderTopbar();
         renderTabs();
         renderSideContent();
         renderInspector();
         renderTimeline();
         renderPlayback();
+      }
+
+      function renderStageFrame() {
+        const aspect = CWI_ASPECT_RATIOS.includes(state.cwi.project.aspectRatio) ? state.cwi.project.aspectRatio : "16:9";
+        const [width, height] = aspect.split(":").map(Number);
+        els.phoneFrame.style.setProperty("--frame-aspect-w", String(width));
+        els.phoneFrame.style.setProperty("--frame-aspect-h", String(height));
+        els.phoneFrame.dataset.aspect = aspect;
+        if (els.aspectSelect) els.aspectSelect.value = aspect;
       }
 
       function renderTopbar() {
@@ -944,13 +1081,14 @@
 
       function renderCueWordsForTranscript(cue, liveWordId) {
         if (!cue.words || cue.words.length === 0) {
-          return `<span class="word">${escapeHtml(formatCueText(cue))}</span>`;
+          return `<span class="word">${escapeHtml(cwiCueDisplayText(cue))}</span>`;
         }
 
         return cue.words.map((word) => {
           const live = word.id === liveWordId;
-          const warn = cue.exception || hasTimingWarning(cue, word);
-          return `<span class="word${live ? " live" : ""}${warn ? " warn" : ""}">${escapeHtml(word.text)}</span>`;
+          const warn = cwiHasException(cue) || hasTimingWarning(cue, word);
+          const estimated = word.timing === "estimated";
+          return `<span class="word${live ? " live" : ""}${warn ? " warn" : ""}${estimated ? " estimated" : ""}"${estimated ? ' title="Estimated timing"' : ""}>${escapeHtml(word.text)}</span>`;
         }).join(" ");
       }
 
@@ -1030,7 +1168,7 @@
           const colors = SPEAKER_PALETTE.filter((entry) => entry.role === role);
           return `
             <optgroup label="${escapeAttr(roleLabel(role))}">
-              ${colors.map((entry) => `<option value="${escapeAttr(entry.color)}"${entry.color.toLowerCase() === String(selectedColor).toLowerCase() ? " selected" : ""}>${escapeHtml(entry.label)} · ${escapeHtml(entry.color)}</option>`).join("")}
+              ${colors.map((entry) => `<option value="${escapeAttr(entry.color)}"${entry.color.toLowerCase() === String(selectedColor).toLowerCase() ? " selected" : ""}>${escapeHtml(entry.label)} · ${escapeHtml(entry.color)}${entry.template ? " · AE template" : ""}</option>`).join("")}
             </optgroup>
           `;
         }).join("");
@@ -1072,11 +1210,24 @@
         state.activeTab = "speakers";
       }
 
+      // Doc 3.1-3.2: keep speaker colors as far apart on the hue wheel as the palette allows.
       function nextSpeakerColor(role) {
-        const usedColors = new Set(state.cwi.speakers.map((speaker) => speaker.color.toLowerCase()));
-        const candidates = SPEAKER_PALETTE.filter((entry) => entry.role === role);
-        const available = candidates.find((entry) => !usedColors.has(entry.color.toLowerCase()));
-        return (available || candidates[0] || SPEAKER_PALETTE[0]).color;
+        const usedColors = state.cwi.speakers.map((speaker) => String(speaker.color));
+        const roleColors = SPEAKER_PALETTE.filter((entry) => entry.role === role);
+        const available = roleColors.filter((entry) => !usedColors.some((color) => color.toLowerCase() === entry.color.toLowerCase()));
+        if (!available.length) return (roleColors[0] || SPEAKER_PALETTE[0]).color;
+        if (!usedColors.length) return available[0].color;
+
+        let best = available[0];
+        let bestDistance = -1;
+        available.forEach((entry) => {
+          const distance = Math.min(...usedColors.map((color) => cwiHueDistance(color, entry.color)));
+          if (distance > bestDistance) {
+            best = entry;
+            bestDistance = distance;
+          }
+        });
+        return best.color;
       }
 
       function colorFitsRole(color, role) {
@@ -1118,7 +1269,7 @@
           end,
           text: "New caption",
           lineBreakAfterWordIds: [],
-          exception: false,
+          exception: { color: false, motion: false, intonation: false },
           offCamera: speaker ? Boolean(speaker.defaultOffCamera) : false,
           words: []
         };
@@ -1169,9 +1320,10 @@
           }));
         }
 
+        // Adding or removing words invalidates the stored onsets, so seed the AE template's own
+        // distribution and mark it estimated until the onsets are aligned.
         const reservedIds = new Set();
-        const duration = Math.max(0.01, Number(cue.end) - Number(cue.start));
-        const slice = duration / tokens.length;
+        const times = cwiEstimatedWordTimes(cue, tokens.length);
         return tokens.map((token, index) => {
           const fallback = oldWords[Math.min(index, oldWords.length - 1)] || {};
           const id = uniqueId(`${cue.id}-word`, reservedIds);
@@ -1179,11 +1331,14 @@
           return {
             id,
             text: token,
-            start: roundTime(Number(cue.start) + slice * index),
-            end: roundTime(Number(cue.start) + slice * (index + 1)),
-            volumePercent: Number.isFinite(Number(fallback.volumePercent)) ? fallback.volumePercent : 55,
-            pitchWeight: Number.isFinite(Number(fallback.pitchWeight)) ? fallback.pitchWeight : 400,
-            pitchWidth: Number.isFinite(Number(fallback.pitchWidth)) ? fallback.pitchWidth : 100
+            start: times[index].start,
+            end: times[index].end,
+            volumePercent: cwiNumber(fallback.volumePercent, CWI_NEUTRAL_VOLUME),
+            pitchWeight: cwiNumber(fallback.pitchWeight, CWI_STYLE.type.defaultWeight),
+            pitchWidth: cwiNumber(fallback.pitchWidth, CWI_STYLE.type.defaultWidth),
+            motion: CWI_WORD_MOTIONS.includes(fallback.motion) ? fallback.motion : "pop",
+            timing: "estimated",
+            burst: false
           };
         });
       }
@@ -1243,6 +1398,8 @@
         const speaker = getSpeaker(cue.speakerId);
         const words = cue.words || [];
         const selectedIndex = words.findIndex((item) => item.id === state.selectedWordId);
+        const exception = cwiNormalizeException(cue.exception);
+        const estimatedCount = words.filter((word) => word.timing === "estimated").length;
 
         return `
           <section class="editor-section" aria-label="Cue Editor">
@@ -1273,12 +1430,22 @@
               <div class="control-label">Cue flags</div>
               <div class="checkbox-grid">
                 <label class="checkbox-row"><input type="checkbox" data-control="off-camera"${cue.offCamera ? " checked" : ""}> Off-camera voice</label>
-                <label class="checkbox-row"><input type="checkbox" data-control="exception"${cue.exception ? " checked" : ""}> Scene exception</label>
               </div>
             </div>
 
+            <fieldset class="control-group exception-group">
+              <legend class="control-label">Scene exception</legend>
+              <p class="control-help">Turn off parts of the system for this cue when the full treatment would distract from the picture.</p>
+              <div class="checkbox-grid">
+                <label class="checkbox-row"><input type="checkbox" data-control="exception-color"${exception.color ? " checked" : ""}> No speaker color</label>
+                <label class="checkbox-row"><input type="checkbox" data-control="exception-motion"${exception.motion ? " checked" : ""}> No motion</label>
+                <label class="checkbox-row"><input type="checkbox" data-control="exception-intonation"${exception.intonation ? " checked" : ""}> No size or tone</label>
+              </div>
+            </fieldset>
+
             <div class="control-group">
               <div class="control-label">Words in cue${selectedIndex >= 0 ? ` · ${selectedIndex + 1} of ${words.length}` : ""}</div>
+              ${estimatedCount ? `<p class="control-help timing-note">${estimatedCount === words.length ? "Word timing is estimated from the cue" : `${estimatedCount} words use estimated timing`}. Set each word start to its first audible sound.</p>` : ""}
               ${renderCueWordPicker(cue)}
             </div>
           </section>
@@ -1291,7 +1458,7 @@
 
         return `
           <div class="word-picker">
-            ${words.map((word) => `<button type="button" class="word-picker-button${word.id === state.selectedWordId ? " active" : ""}" data-cue-id="${escapeAttr(cue.id)}" data-inspector-word-id="${escapeAttr(word.id)}">${escapeHtml(word.text)}</button>`).join("")}
+            ${words.map((word) => `<button type="button" class="word-picker-button${word.id === state.selectedWordId ? " active" : ""}${word.timing === "estimated" ? " estimated" : ""}" data-cue-id="${escapeAttr(cue.id)}" data-inspector-word-id="${escapeAttr(word.id)}">${escapeHtml(word.text)}</button>`).join("")}
           </div>
         `;
       }
@@ -1457,9 +1624,18 @@
           `;
         }
 
-        const volume = word ? word.volumePercent : 50;
-        const pitchWeight = word ? word.pitchWeight : 400;
-        const pitchWidth = word ? word.pitchWidth : 100;
+        const volume = cwiNumber(word.volumePercent, CWI_NEUTRAL_VOLUME);
+        const pitchWeight = cwiNumber(word.pitchWeight, CWI_STYLE.type.defaultWeight);
+        const pitchWidth = cwiNumber(word.pitchWidth, CWI_STYLE.type.defaultWidth);
+        const toneSlider = Math.round(cwiSliderFromTone(pitchWeight) * 100);
+        const toneInBand = cwiToneInBand(pitchWeight, pitchWidth);
+        const motion = CWI_WORD_MOTIONS.includes(word.motion) ? word.motion : "pop";
+        const isLastWord = selectedIndex === words.length - 1;
+        const breakAfter = (cue.lineBreakAfterWordIds || []).includes(word.id);
+        const syllables = Array.isArray(word.units) && word.units.length ? word.units.map((unit) => unit.text).join("-") : "";
+        const timingLabel = word.timing === "estimated" ? "Estimated" : word.timing === "manual" ? "Manual" : "Aligned";
+        const loud = volume >= 60;
+        const whisper = volume <= 40;
 
         return `
           <section class="editor-section" aria-label="Word Editor">
@@ -1480,7 +1656,7 @@
 
             <div class="field-row">
               <div class="control-group">
-                <label class="control-label" for="wordStart">Word start</label>
+                <label class="control-label" for="wordStart">Word start <span class="timing-pill${word.timing === "estimated" ? " estimated" : ""}">${timingLabel}</span></label>
                 <input class="control-input" id="wordStart" type="number" min="0" step="0.01" data-control="word-start" value="${word.start}">
               </div>
               <div class="control-group">
@@ -1492,9 +1668,9 @@
             <div class="control-group">
               <div class="control-label">Vocal emphasis</div>
               <div class="segmented">
-                <button type="button" class="${volume >= 70 ? "active" : ""}" data-volume-preset="82" aria-pressed="${volume >= 70}">Loud</button>
-                <button type="button" class="${volume > 40 && volume < 70 ? "active" : ""}" data-volume-preset="55" aria-pressed="${volume > 40 && volume < 70}">Normal</button>
-                <button type="button" class="${volume <= 40 ? "active" : ""}" data-volume-preset="28" aria-pressed="${volume <= 40}">Whisper</button>
+                <button type="button" class="${loud ? "active" : ""}" data-volume-preset="82" aria-pressed="${loud}">Loud</button>
+                <button type="button" class="${!loud && !whisper ? "active" : ""}" data-volume-preset="${CWI_NEUTRAL_VOLUME}" aria-pressed="${!loud && !whisper}">Normal</button>
+                <button type="button" class="${whisper ? "active" : ""}" data-volume-preset="28" aria-pressed="${whisper}">Whisper</button>
               </div>
             </div>
 
@@ -1502,23 +1678,53 @@
               <label class="control-label" for="volumeSize">Volume size</label>
               <div class="range-row wide">
                 <input type="range" id="volumeSize" min="0" max="100" value="${volume}" data-control="volume">
-                <span data-output="volume">${volumeToPercent(volume).toFixed(1)}%</span>
+                <span data-output="volume">${cwiVolumeScreenPercent(volume).toFixed(1)}%</span>
               </div>
+              <label class="checkbox-row"><input type="checkbox" data-control="word-burst"${word.burst ? " checked" : ""}> Loud burst may break out of the box</label>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="wordMotion">Motion</label>
+              <select class="control-select" id="wordMotion" data-control="word-motion">
+                <option value="pop"${motion === "pop" ? " selected" : ""}>Word pop</option>
+                <option value="syllable"${motion === "syllable" ? " selected" : ""}>Syllable pop</option>
+                <option value="none"${motion === "none" ? " selected" : ""}>No motion</option>
+              </select>
+              ${motion === "syllable" ? `
+                <label class="control-label" for="wordSyllables">Syllables</label>
+                <input class="control-input" id="wordSyllables" data-control="word-syllables" data-commit="change" placeholder="in-ex-pli-ca-ble" value="${escapeAttr(syllables)}">
+                <p class="control-help">Separate syllables with hyphens; they must spell the word. Syllables pop in even steps across the word.</p>
+              ` : ""}
+              <label class="checkbox-row"><input type="checkbox" data-control="word-break"${breakAfter ? " checked" : ""}${isLastWord ? " disabled" : ""}> Break line after this word</label>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="wordTone">Tone</label>
+              <div class="range-row tone-row">
+                <span class="range-end">High</span>
+                <input type="range" id="wordTone" min="-100" max="100" value="${toneSlider}" data-control="tone" aria-describedby="toneHelp">
+                <span class="range-end">Deep</span>
+              </div>
+              <p class="control-help" id="toneHelp"><span data-output="tone">wght ${pitchWeight} · wdth ${pitchWidth}</span>. Deeper, fuller voices get heavier and wider type; higher, sharper voices get lighter and narrower type. Leave ordinary words at the center.</p>
             </div>
 
             <details class="advanced-control">
-              <summary>Tone override</summary>
-              <p class="control-help">Optional editorial cue. Use sparingly for unusually deep, sharp, tense, or stylized delivery; preview keeps the default readable type style for ordinary words.</p>
+              <summary>Advanced tone</summary>
               <div class="field-row">
                 <div class="control-group">
-                  <label class="control-label" for="pitchWeight">Weight override</label>
-                  <input class="control-input" id="pitchWeight" type="number" min="300" max="1000" step="10" data-control="pitch-weight" value="${pitchWeight}">
+                  <label class="control-label" for="pitchWeight">Weight</label>
+                  <input class="control-input" id="pitchWeight" type="number" min="${CWI_STYLE.tone.minWeight}" max="${CWI_STYLE.tone.maxWeight}" step="10" data-control="pitch-weight" value="${pitchWeight}">
                 </div>
                 <div class="control-group">
-                  <label class="control-label" for="pitchWidth">Width override</label>
-                  <input class="control-input" id="pitchWidth" type="number" min="75" max="125" step="1" data-control="pitch-width" value="${pitchWidth}">
+                  <label class="control-label" for="pitchWidth">Width</label>
+                  <input class="control-input" id="pitchWidth" type="number" min="${CWI_STYLE.tone.minWidth}" max="${CWI_STYLE.tone.maxWidth}" step="1" data-control="pitch-width" value="${pitchWidth}">
                 </div>
               </div>
+              <div class="control-group">
+                <label class="control-label" for="pitchHz">Set from pitch (Hz)</label>
+                <input class="control-input" id="pitchHz" type="number" min="80" max="250" step="1" data-control="pitch-hz" data-commit="change" placeholder="160-200 Hz stays Regular">
+              </div>
+              ${toneInBand ? "" : '<p class="control-help tone-warning">This weight and width pairing contradicts the voice (heavy with narrow, or light with wide). Keep weight and width moving together.</p>'}
             </details>
 
           </section>
@@ -1562,7 +1768,9 @@
       }
 
       function renderWaveform() {
-        return AUDIO_WAVEFORM.map((value) => {
+        // The bundled sample ships a precomputed waveform; imported media uses its decoded audio.
+        const values = state.mediaObjectUrl ? state.waveform || [] : AUDIO_WAVEFORM;
+        return values.map((value) => {
           const height = Math.max(3, Math.round(6 + value * 38));
           return `<i style="height: ${height}px"></i>`;
         }).join("");
@@ -1572,7 +1780,8 @@
         const current = getCurrentCueAndWord();
         return state.cwi.cues.flatMap((cue) => (cue.words || []).map((word) => {
           const active = word.id === state.selectedWordId || word.id === current.wordId;
-          return `<button type="button" class="segment${active ? " active" : ""}" style="left: ${word.start * PX_PER_SECOND}px; width: ${Math.max(34, (word.end - word.start) * PX_PER_SECOND)}px" data-cue-id="${escapeAttr(cue.id)}" data-word-id="${escapeAttr(word.id)}">${escapeHtml(word.text)}</button>`;
+          const estimated = word.timing === "estimated";
+          return `<button type="button" class="segment${active ? " active" : ""}${estimated ? " estimated" : ""}" style="left: ${word.start * PX_PER_SECOND}px; width: ${Math.max(34, (word.end - word.start) * PX_PER_SECOND)}px" data-cue-id="${escapeAttr(cue.id)}" data-word-id="${escapeAttr(word.id)}"${estimated ? ' title="Estimated timing"' : ""}>${escapeHtml(word.text)}</button>`;
         })).join("");
       }
 
@@ -1625,66 +1834,136 @@
         });
       }
 
+      // The caption overlay is a projection of cwiComputeFrame: nodes are rebuilt only when the set
+      // of lines or their layout changes. Each frame updates box geometry, word position and type
+      // (emphasized words grow and push their neighbors), color, and vertical offset.
       function renderCaptionOverlay() {
-        const mediaTime = currentMediaTime();
-        const cue = state.cwi.cues.find((item) => isCueLive(item, mediaTime));
-        if (!cue) {
-          els.captionSafe.innerHTML = '<div class="caption-stack one-line"><div class="caption-line caption-empty">.</div></div>';
-          return;
-        }
+        const viewport = captionViewport();
+        const frame = cwiComputeFrame(state.cwi, currentMediaTime(), viewport, (cue) => captionLayoutFor(cue, viewport), {
+          reducedMotion: state.reducedMotion
+        });
+        const key = [viewport.width, viewport.height, ...frame.lines.map((line) => `${line.key}|${line.signature}`)].join("||");
+        if (key !== captionView.key) buildCaptionNodes(frame, key);
 
-        if (cue.type === "sound") {
-          renderNonDialogueCue(cue, `[${stripCueDecorators(cue.text)}]`);
-          return;
-        }
-
-        if (cue.type === "music") {
-          renderNonDialogueCue(cue, `\u266a ${stripCueDecorators(cue.text)} \u266a`);
-          return;
-        }
-
-        const speaker = getSpeaker(cue.speakerId);
-        const color = speaker ? speaker.color : "var(--cyan)";
-        const words = cue.words && cue.words.length ? cue.words : wordsFromCueText(cue);
-        const layout = captionLayoutForItems(captionTextItemsFromWords(words));
-        const linesHtml = layout.lines.map((line) => {
-          const wordsHtml = line.map((item) => {
-            const word = item.word;
-            const motion = aeWordMotionState(cue, word, item.wordIndex, mediaTime, layout.fontSize);
-            const style = [
-              motion.spoken ? `color: ${color}` : "",
-              motion.transform ? `transform: ${motion.transform}` : ""
-            ].filter(Boolean).join("; ");
-            const classes = ["caption-word"];
-            if (motion.spoken) classes.push("spoken");
-            if (motion.active) classes.push("intent");
-            if (motion.anticipating) classes.push("anticipating");
-            if (cue.offCamera) classes.push("off-camera");
-            return `<span class="${classes.join(" ")}" style="${escapeAttr(style)}">${escapeHtml(word.text)}</span>`;
-          }).join(" ");
-          return `<div class="caption-line" style="${escapeAttr(captionLineStyle(layout.fontSize, line))}">${wordsHtml}</div>`;
-        }).join("");
-
-        els.captionSafe.innerHTML = renderCaptionStack(linesHtml, layout);
+        frame.lines.forEach((line, lineIndex) => {
+          const view = captionView.lines[lineIndex];
+          setStyle(view.box, "left", `${line.box.x.toFixed(2)}px`);
+          setStyle(view.box, "top", `${line.box.y.toFixed(2)}px`);
+          setStyle(view.box, "width", `${line.box.width.toFixed(2)}px`);
+          setStyle(view.box, "height", `${line.box.height.toFixed(2)}px`);
+          line.words.forEach((word, wordIndex) => {
+            const node = view.words[wordIndex];
+            setStyle(node, "left", `${word.x.toFixed(2)}px`);
+            setStyle(node, "top", `${(word.baseline - word.fontPx * CWI_STYLE.type.ascentEm).toFixed(2)}px`);
+            applyCaptionFont(node, word.fontPx, word.weight, word.width, word.slant);
+            setStyle(node, "color", word.color);
+            setStyle(node, "transform", captionTransform(word.offsetY, word.scale));
+            if (word.units) {
+              word.units.forEach((unit, unitIndex) => {
+                setStyle(node.children[unitIndex], "transform", captionTransform(unit.offsetY, 1));
+              });
+            }
+          });
+        });
       }
 
-      function renderNonDialogueCue(cue, text) {
-        const color = cue.type === "music" ? "var(--ink)" : "";
-        const word = cue.type === "sound" && cue.words && cue.words.length ? cue.words[0] : null;
-        const items = cue.type === "sound" ? [{ text }] : captionTextItems(text);
-        const layout = captionLayoutForItems(items);
-        const linesHtml = layout.lines.map((line) => {
-          const wordsHtml = line.map((item) => {
-            const scale = cue.type === "sound" ? soundCueScale(cue, word, currentMediaTime()) : 1;
-            const style = [
-              color ? `color: ${color}` : "",
-              scale !== 1 ? `transform: scale(${scale.toFixed(3)})` : ""
-            ].filter(Boolean).join("; ");
-            return `<span class="caption-word" style="${escapeAttr(style)}">${escapeHtml(item.text)}</span>`;
-          }).join(" ");
-          return `<div class="caption-line" style="${escapeAttr(captionLineStyle(layout.fontSize, line))}">${wordsHtml}</div>`;
-        }).join("");
-        els.captionSafe.innerHTML = renderCaptionStack(linesHtml, layout);
+      function buildCaptionNodes(frame, key) {
+        captionView.lines.forEach((view) => view.box.remove());
+        captionView.lines = frame.lines.map((line) => {
+          const box = document.createElement("div");
+          box.className = `caption-line caption-${line.cueType}`;
+          box.style.background = frame.boxFill;
+
+          const words = line.words.map((word) => {
+            const node = document.createElement("span");
+            node.className = "caption-word";
+            // A line height equal to the font's ascent + descent puts the baseline exactly `ascentEm` below the top.
+            node.style.lineHeight = String(CWI_STYLE.type.ascentEm + CWI_STYLE.type.descentEm);
+            if (word.units) {
+              word.units.forEach((unit) => {
+                const unitNode = document.createElement("span");
+                unitNode.className = "caption-unit";
+                unitNode.textContent = unit.text;
+                node.appendChild(unitNode);
+              });
+            } else {
+              node.textContent = word.text;
+            }
+            box.appendChild(node);
+            return node;
+          });
+
+          els.captionSafe.appendChild(box);
+          return { box, words };
+        });
+
+        const guide = frame.guide;
+        els.captionGuide.style.left = `${guide.left}px`;
+        els.captionGuide.style.width = `${guide.width}px`;
+        els.captionGuide.style.top = `${guide.top}px`;
+        els.captionGuide.style.height = `${guide.bottom - guide.top}px`;
+        els.captionSafe.dataset.lines = String(frame.lines.length);
+        captionView.key = key;
+      }
+
+      // Skip style writes that would not change anything; most words are idle on most frames. The
+      // browser normalizes values it reads back, so compare against what was last written instead.
+      function setStyle(node, property, value) {
+        let written = captionStyleCache.get(node);
+        if (!written) {
+          written = {};
+          captionStyleCache.set(node, written);
+        }
+        if (written[property] === value) return;
+        written[property] = value;
+        node.style[property] = value;
+      }
+
+      function captionTransform(offsetY, scale) {
+        if (!offsetY && scale === 1) return "";
+        return `translate3d(0, ${offsetY.toFixed(2)}px, 0)${scale !== 1 ? ` scale(${scale.toFixed(3)})` : ""}`;
+      }
+
+      function captionViewport() {
+        const frame = els.phoneFrame;
+        return {
+          width: frame && frame.clientWidth ? frame.clientWidth : 960,
+          height: frame && frame.clientHeight ? frame.clientHeight : 540
+        };
+      }
+
+      function invalidateCaptionLayouts(clearMeasurements = false) {
+        captionLayouts.clear();
+        if (clearMeasurements) captionMeasureCache.clear();
+        captionView.key = "";
+      }
+
+      function captionLayoutFor(cue, viewport = captionViewport()) {
+        const signature = cwiLayoutSignature(state.cwi, cue, viewport);
+        const cached = captionLayouts.get(cue.id);
+        if (cached && cached.signature === signature) return cached;
+        const layout = cwiLayoutCue(state.cwi, cue, viewport, measureCaptionText);
+        captionLayouts.set(cue.id, layout);
+        return layout;
+      }
+
+      // Canvas text metrics cannot express Roboto Flex width or slant, so measure with a hidden
+      // span that uses exactly the same font settings as the rendered words.
+      function measureCaptionText(text, fontPx, weight, width, slant) {
+        const key = `${text}|${fontPx.toFixed(3)}|${weight}|${width}|${slant}`;
+        if (captionMeasureCache.has(key)) return captionMeasureCache.get(key);
+        const node = els.captionMeasure;
+        applyCaptionFont(node, fontPx, weight, width, slant);
+        node.textContent = text;
+        const measured = node.getBoundingClientRect().width;
+        captionMeasureCache.set(key, measured);
+        return measured;
+      }
+
+      function applyCaptionFont(node, fontPx, weight, width, slant) {
+        setStyle(node, "fontSize", `${Math.round(fontPx * 100) / 100}px`);
+        setStyle(node, "fontWeight", String(Math.round(weight)));
+        setStyle(node, "fontVariationSettings", `"wght" ${Math.round(weight)}, "wdth" ${Math.round(width * 10) / 10}, "slnt" ${slant}`);
       }
 
       function renderTimeReadout() {
@@ -1709,6 +1988,12 @@
         els.playButton.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
       }
 
+      function setGuideButton() {
+        els.guideButton.setAttribute("aria-pressed", String(state.showGuides));
+        els.guideButton.setAttribute("aria-label", state.showGuides ? "Hide caption work area" : "Show caption work area");
+        els.captionGuide.hidden = !state.showGuides;
+      }
+
       function setSoundButton() {
         if (!els.soundButton) return;
         const muted = els.video.muted || els.video.volume === 0;
@@ -1725,14 +2010,17 @@
         if (!cue) return;
 
         const value = control.type === "checkbox" ? control.checked : control.value;
+        const exception = cwiNormalizeException(cue.exception);
 
         switch (control.dataset.control) {
           case "cue-start":
             cue.start = roundTime(Math.max(0, Number(value) || 0));
             if (cue.end <= cue.start) cue.end = roundTime(cue.start + 0.01);
+            reseedEstimatedWords(cue);
             break;
           case "cue-end":
             cue.end = roundTime(Math.max(cue.start + 0.01, Number(value) || cue.start + 0.01));
+            reseedEstimatedWords(cue);
             break;
           case "cue-text":
             cue.text = String(value);
@@ -1750,29 +2038,64 @@
           case "word-start":
             if (word) {
               word.start = roundTime(Math.max(0, Number(value) || 0));
+              word.timing = "manual";
               normalizeCueTiming(cue);
             }
             break;
           case "word-end":
             if (word) {
               word.end = roundTime(Math.max(word.start + 0.01, Number(value) || word.start + 0.01));
+              word.timing = "manual";
               normalizeCueTiming(cue);
             }
             break;
           case "volume":
-            if (word) word.volumePercent = clamp(Number(value) || 0, 0, 100);
+            if (word) word.volumePercent = clamp(cwiNumber(value, CWI_NEUTRAL_VOLUME), 0, 100);
+            break;
+          case "word-burst":
+            if (word) word.burst = Boolean(value);
+            break;
+          case "word-motion":
+            if (word) word.motion = CWI_WORD_MOTIONS.includes(value) ? value : "pop";
+            break;
+          case "word-syllables":
+            if (word) setWordSyllables(word, String(value));
+            break;
+          case "word-break":
+            if (word) {
+              const breaks = new Set(cue.lineBreakAfterWordIds || []);
+              if (value) breaks.add(word.id);
+              else breaks.delete(word.id);
+              cue.lineBreakAfterWordIds = (cue.words || []).map((item) => item.id).filter((id) => breaks.has(id));
+            }
+            break;
+          case "tone":
+            if (word) {
+              const tone = cwiToneFromSlider(cwiNumber(value, 0) / 100);
+              word.pitchWeight = tone.weight;
+              word.pitchWidth = tone.width;
+            }
             break;
           case "pitch-weight":
-            if (word) word.pitchWeight = clamp(Number(value) || 400, 300, 1000);
+            if (word) word.pitchWeight = clamp(cwiNumber(value, CWI_STYLE.type.defaultWeight), CWI_STYLE.tone.minWeight, CWI_STYLE.tone.maxWeight);
             break;
           case "pitch-width":
-            if (word) word.pitchWidth = clamp(Number(value) || 100, 75, 125);
+            if (word) word.pitchWidth = clamp(cwiNumber(value, CWI_STYLE.type.defaultWidth), CWI_STYLE.tone.minWidth, CWI_STYLE.tone.maxWidth);
+            break;
+          case "pitch-hz":
+            if (word && Number.isFinite(cwiNumber(value, NaN))) {
+              const tone = cwiToneForPitchHz(Number(value));
+              word.pitchWeight = tone.weight;
+              word.pitchWidth = tone.width;
+            }
             break;
           case "off-camera":
             cue.offCamera = Boolean(value);
             break;
-          case "exception":
-            cue.exception = Boolean(value);
+          case "exception-color":
+          case "exception-motion":
+          case "exception-intonation":
+            cue.exception = { ...exception, [control.dataset.control.replace("exception-", "")]: Boolean(value) };
             break;
           default:
             break;
@@ -1780,17 +2103,42 @@
 
       }
 
+      // Estimated words follow the cue's START/END window, so keep them in step with cue edits.
+      function reseedEstimatedWords(cue) {
+        const words = cue.words || [];
+        if (!words.length || !words.every((word) => word.timing === "estimated")) return;
+        const times = cwiEstimatedWordTimes(cue, words.length);
+        words.forEach((word, index) => {
+          word.start = times[index].start;
+          word.end = times[index].end;
+        });
+      }
+
+      function setWordSyllables(word, value) {
+        const parts = value.split("-").map((part) => part.trim()).filter(Boolean);
+        if (parts.length < 2 || parts.join("") !== word.text) {
+          delete word.units;
+          return;
+        }
+        const start = Number(word.start);
+        const duration = Math.max(0.01, Number(word.end) - start);
+        word.units = parts.map((text, index) => ({ text, start: roundTime(start + (duration * index) / parts.length) }));
+      }
+
       function updateRangeOutputs() {
         const volumeInput = els.inspector.querySelector('[data-control="volume"]');
         const volumeOutput = els.inspector.querySelector('[data-output="volume"]');
-        if (volumeInput && volumeOutput) volumeOutput.textContent = `${volumeToPercent(Number(volumeInput.value)).toFixed(1)}%`;
+        if (volumeInput && volumeOutput) volumeOutput.textContent = `${cwiVolumeScreenPercent(Number(volumeInput.value)).toFixed(1)}%`;
+        const toneOutput = els.inspector.querySelector('[data-output="tone"]');
+        const word = getSelectedWord();
+        if (toneOutput && word) toneOutput.textContent = `wght ${word.pitchWeight} · wdth ${word.pitchWidth}`;
       }
 
       function syncInspectorTitle() {
         const titleValue = els.inspectorHead.querySelector(".inspector-title span");
         const cue = getSelectedCue();
         const word = getSelectedWord();
-        if (titleValue && cue) titleValue.textContent = `"${word ? word.text : formatCueText(cue)}"`;
+        if (titleValue && cue) titleValue.textContent = `"${word ? word.text : cwiCueDisplayText(cue)}"`;
       }
 
       function normalizeCueTiming(cue) {
@@ -1799,61 +2147,6 @@
           cue.start = roundTime(Math.min(cue.start, ...wordTimes));
           cue.end = roundTime(Math.max(cue.end, ...wordTimes));
         }
-      }
-
-      function normalizeImportedProject(raw) {
-        if (!raw || typeof raw !== "object") throw new Error("JSON must be an object with project, speakers, and cues.");
-        if (!raw.project || !Array.isArray(raw.speakers) || !Array.isArray(raw.cues)) {
-          throw new Error("JSON must include project, speakers, and cues arrays.");
-        }
-
-        return {
-          project: {
-            id: String(raw.project.id || "imported-cwi-project"),
-            title: String(raw.project.title || "Imported CWI Project"),
-            aspectRatio: String(raw.project.aspectRatio || "16:9"),
-            mediaName: String(raw.project.mediaName || state.cwi.project.mediaName || "Local media"),
-            duration: Number(raw.project.duration) || state.cwi.project.duration || 0
-          },
-          speakers: raw.speakers.map((speaker, index) => ({
-            id: String(speaker.id || `speaker-${index + 1}`),
-            name: String(speaker.name || `Speaker ${index + 1}`),
-            role: SPEAKER_ROLES.includes(speaker.role) ? String(speaker.role) : "supporting",
-            color: String(speaker.color || SPEAKER_PALETTE[index % SPEAKER_PALETTE.length].color),
-            defaultOffCamera: Boolean(speaker.defaultOffCamera)
-          })),
-          cues: raw.cues.map((cue, index) => normalizeImportedCue(cue, index)),
-          review: {
-            notes: raw.review && Array.isArray(raw.review.notes) ? raw.review.notes.map(String) : [],
-            validationStatus: raw.review && raw.review.validationStatus ? String(raw.review.validationStatus) : "unchecked"
-          }
-        };
-      }
-
-      function normalizeImportedCue(cue, index) {
-        const id = String(cue.id || `cue-${index + 1}`);
-        const words = Array.isArray(cue.words) ? cue.words.map((word, wordIndex) => ({
-          id: String(word.id || `${id}-word-${wordIndex + 1}`),
-          text: String(word.text || ""),
-          start: roundTime(Number(word.start) || Number(cue.start) || 0),
-          end: roundTime(Number(word.end) || Number(cue.end) || Number(cue.start) + 0.5 || 0.5),
-          volumePercent: clamp(Number(word.volumePercent) || 55, 0, 100),
-          pitchWeight: clamp(Number(word.pitchWeight) || 400, 300, 1000),
-          pitchWidth: clamp(Number(word.pitchWidth) || 100, 75, 125)
-        })) : [];
-
-        return {
-          id,
-          type: CUE_TYPES.includes(cue.type) ? cue.type : "dialogue",
-          speakerId: String(cue.speakerId || ""),
-          start: roundTime(Number(cue.start) || 0),
-          end: roundTime(Number(cue.end) || Math.max(...words.map((word) => word.end), 0.5)),
-          text: String(cue.text || words.map((word) => word.text).join(" ")),
-          lineBreakAfterWordIds: Array.isArray(cue.lineBreakAfterWordIds) ? cue.lineBreakAfterWordIds.map(String) : [],
-          exception: Boolean(cue.exception),
-          offCamera: Boolean(cue.offCamera),
-          words
-        };
       }
 
       function validateProject(project) {
@@ -1866,8 +2159,10 @@
 
         if (!project.project || !project.project.id || !project.project.title) {
           fail("Project metadata", "Project id and title are required.");
+        } else if (!CWI_ASPECT_RATIOS.includes(project.project.aspectRatio)) {
+          fail("Project metadata", `Aspect ratio ${project.project.aspectRatio || "(missing)"} must be one of ${CWI_ASPECT_RATIOS.join(", ")}.`);
         } else {
-          pass("Project metadata", `${project.project.title} has id, aspect ratio, media name, and duration fields.`);
+          pass("Project metadata", `${project.project.title} is ${project.project.aspectRatio} at ${project.project.frameRate || CWI_DEFAULT_FRAME_RATE} fps (schema v${project.schemaVersion || 1}).`);
         }
 
         if (!Array.isArray(project.speakers) || project.speakers.length === 0) {
@@ -1875,124 +2170,149 @@
         } else {
           const missingSpeaker = project.speakers.find((speaker) => !speaker.id || !speaker.name || !speaker.color);
           missingSpeaker ? fail("Speaker metadata", "One or more speakers are missing id, name, or color.") : pass("Speaker metadata", `${project.speakers.length} speaker records are editable.`);
+          const colorIssues = speakerColorIssues(project.speakers);
+          colorIssues.length
+            ? fail("Speaker colors", colorIssues.slice(0, 3).join("; "))
+            : pass("Speaker colors", `Main and supporting characters are at least ${MIN_SPEAKER_HUE_DISTANCE}\u00B0 apart on the hue wheel.`);
         }
 
         if (!Array.isArray(project.cues) || project.cues.length === 0) {
           fail("CWI cues", "At least one caption cue is required.");
-        } else {
-          const cueErrors = [];
-          project.cues.forEach((cue) => {
-            if (!cue.id || !CUE_TYPES.includes(cue.type) || !Number.isFinite(Number(cue.start)) || !Number.isFinite(Number(cue.end)) || !cue.text) {
-              cueErrors.push(`${cue.id || "unnamed cue"} is missing a required cue field`);
-            }
-            if (cue.type === "dialogue" && !project.speakers.some((speaker) => speaker.id === cue.speakerId)) {
-              cueErrors.push(`${cue.id} needs a valid speaker`);
-            }
-            if (!Array.isArray(cue.words) || cue.words.length === 0) {
-              cueErrors.push(`${cue.id} needs word timing records`);
-            } else {
-              cue.words.forEach((word) => {
-                if (!word.id || !word.text || !Number.isFinite(Number(word.start)) || !Number.isFinite(Number(word.end))) {
-                  cueErrors.push(`${cue.id} has a word missing id, text, start, or end`);
-                }
-                if (Number(word.end) <= Number(word.start)) {
-                  cueErrors.push(`${word.id || "word"} ends before it starts`);
-                }
-              });
-            }
-          });
-          cueErrors.length ? fail("CWI cues", cueErrors.slice(0, 3).join("; ")) : pass("CWI cues", `${project.cues.length} cues preserve text, word timing, style, exceptions, sound, and music data.`);
+          return checks;
         }
 
-        const hasUploadPath = false;
-        hasUploadPath ? fail("Media boundary", "A cloud upload path is active.") : pass("Media boundary", state.mediaObjectUrl ? "Selected media is a browser object URL and stays local." : "The bundled sample media is loaded locally; no upload path exists.");
+        const cueErrors = [];
+        project.cues.forEach((cue) => {
+          if (!cue.id || !CUE_TYPES.includes(cue.type) || !Number.isFinite(Number(cue.start)) || !Number.isFinite(Number(cue.end)) || !cue.text) {
+            cueErrors.push(`${cue.id || "unnamed cue"} is missing a required cue field`);
+          }
+          if (cue.type === "dialogue" && !project.speakers.some((speaker) => speaker.id === cue.speakerId)) {
+            cueErrors.push(`${cue.id} needs a valid speaker`);
+          }
+          if (!Array.isArray(cue.words) || cue.words.length === 0) {
+            cueErrors.push(`${cue.id} needs word timing records`);
+          } else {
+            cue.words.forEach((word) => {
+              if (!word.id || !word.text || !Number.isFinite(Number(word.start)) || !Number.isFinite(Number(word.end))) {
+                cueErrors.push(`${cue.id} has a word missing id, text, start, or end`);
+              }
+              if (Number(word.end) <= Number(word.start)) {
+                cueErrors.push(`${word.id || "word"} ends before it starts`);
+              }
+            });
+          }
+        });
+        cueErrors.length ? fail("CWI cues", cueErrors.slice(0, 3).join("; ")) : pass("CWI cues", `${project.cues.length} cues preserve text, word timing, style, exceptions, sound, and music data.`);
 
-        const hasDialogue = project.cues.some((cue) => cue.type === "dialogue");
-        const hasSound = project.cues.some((cue) => cue.type === "sound");
-        hasDialogue && hasSound
-          ? pass("Cue coverage", "Dialogue and AE-template sound effect cue types are represented.")
-          : fail("Cue coverage", "The project should include the dialogue and sound-effect cues used by the After Effects template.");
+        const mediaSource = String(els.video.currentSrc || els.video.src || "");
+        remoteMediaSource(mediaSource)
+          ? fail("Media boundary", "Preview media is loaded from another origin. Source media must stay local unless the creator uploads it on purpose.")
+          : pass("Media boundary", mediaSource.startsWith("blob:") ? "Selected media is a browser object URL and stays on this device." : "The bundled sample media is served with the app; nothing is uploaded.");
 
-        const soundCueIssues = soundCuePolicyIssues(project.cues);
-        soundCueIssues.length
-          ? fail("Sound cue treatment", soundCueIssues.slice(0, 3).join("; "))
-          : pass("Sound cue treatment", "Sound effects stay white/default, bracketed, and render as single phrase units with cue-level intensity.");
+        const timingIssues = wordTimingIssues(project.cues);
+        timingIssues.length
+          ? fail("Read-ahead and timing", timingIssues.slice(0, 3).join("; "))
+          : pass("Read-ahead and timing", "Dialogue cues keep complete read-ahead text with word onsets in order inside each cue.");
 
-        const volumeIssues = volumePolicyIssues(project.cues);
+        const estimatedCues = project.cues.filter((cue) => (cue.words || []).length && cue.words.every((word) => word.timing === "estimated"));
+        estimatedCues.length
+          ? fail("Word sync", `${estimatedCues.length} cues still use estimated word timing (${estimatedCues.slice(0, 3).map((cue) => cue.id).join(", ")}). Set each word start to its first audible sound.`)
+          : pass("Word sync", "Every cue has aligned or manually set word onsets.");
+
+        const nonDialogueIssues = nonDialogueCueIssues(project.cues);
+        nonDialogueIssues.length
+          ? fail("Sound and music cues", nonDialogueIssues.slice(0, 3).join("; "))
+          : pass("Sound and music cues", `Sound effects render as white [bracketed] text and music as ${CWI_STYLE.music.glyph} [description] ${CWI_STYLE.music.glyph}, without speaker color.`);
+
+        const volumeIssues = volumeBaselineIssues(project.cues);
         volumeIssues.length
-          ? fail("Volume sizing", volumeIssues.slice(0, 3).join("; "))
-          : pass("Volume sizing", "All word volume values map to the 3%-12% policy range.");
+          ? fail("Volume sizing", volumeIssues.join("; "))
+          : pass("Volume sizing", "Ordinary speech sits at the 5% baseline; only emphasized words grow toward 12% or shrink toward 3%.");
 
-        const readAheadIssues = readAheadPolicyIssues(project.cues);
-        readAheadIssues.length
-          ? fail("Read-ahead and timing", readAheadIssues.slice(0, 3).join("; "))
-          : pass("Read-ahead and timing", "Dialogue cues keep complete read-ahead text and word timing records.");
+        const toneIssues = toneOverridePolicyIssues(project.cues);
+        toneIssues.length
+          ? fail("Tone styling", toneIssues.slice(0, 3).join("; "))
+          : pass("Tone styling", "Weight and width stay sparse, editorial, and consistent with the voice.");
 
-        const toneOverrideIssues = toneOverridePolicyIssues(project.cues);
-        toneOverrideIssues.length
-          ? fail("Tone override usage", toneOverrideIssues.slice(0, 3).join("; "))
-          : pass("Tone override usage", "Pitch weight and width remain optional editorial overrides rather than continuous per-word styling.");
-
-        const aeMatches = project.cues
-          .map((cue) => afterEffectsTranscriptReferenceForText(cue.text))
-          .filter(Boolean);
-        if (aeMatches.length) {
-          const layers = aeMatches.map((reference) => reference.layer).join(", ");
-          pass("After Effects transcript reference", `${aeMatches.length} cues match AE source-text layers (${layers}); matched cue timestamps use the AE composition times mapped through the movie layer offset.`);
+        const viewport = captionViewport();
+        const layoutFor = (cue) => captionLayoutFor(cue, viewport);
+        const overflowingCues = project.cues.filter((cue) => layoutFor(cue).overflow);
+        const busiest = cwiMaxSimultaneousLines(project, layoutFor);
+        if (overflowingCues.length) {
+          fail("Caption work area", `These cues are wider than the ${project.project.aspectRatio} line width even on two lines, or have more than one manual break: ${overflowingCues.slice(0, 3).map((cue) => cue.id).join(", ")}.`);
+        } else if (busiest.count > CWI_STYLE.stack.maxLines) {
+          fail("Caption work area", `${busiest.count} caption lines are on screen at ${formatTime(busiest.time)}; the system allows ${CWI_STYLE.stack.maxLines}. Shorten or split the overlapping cues.`);
         } else {
-          pass("After Effects transcript reference", "No exact AE source-text cue match was found; existing cue timestamps are retained.");
+          pass("Caption work area", `Every cue fits the ${project.project.aspectRatio} line width, and no more than ${CWI_STYLE.stack.maxLines} lines are on screen at once.`);
         }
-
-        const overflowingCues = project.cues.filter((cue) => captionLayoutForCue(cue).overflow);
-        overflowingCues.length
-          ? fail("Caption work area", `These cues exceed the two-line lower-20% work area: ${overflowingCues.slice(0, 3).map((cue) => cue.id).join(", ")}.`)
-          : pass("Caption work area", "Rendered caption boxes fit within the lower 20% work area with side and bottom safety margins.");
 
         return checks;
       }
 
-      function soundCuePolicyIssues(cues) {
+      function remoteMediaSource(source) {
+        if (!/^https?:/i.test(source)) return false;
+        try {
+          return new URL(source).origin !== window.location.origin;
+        } catch {
+          return true;
+        }
+      }
+
+      function speakerColorIssues(speakers) {
+        const prominent = (speakers || []).filter((speaker) => speaker.role !== "minor");
+        const issues = [];
+        prominent.forEach((speaker, index) => {
+          prominent.slice(index + 1).forEach((other) => {
+            const distance = cwiHueDistance(speaker.color, other.color);
+            if (distance < MIN_SPEAKER_HUE_DISTANCE) {
+              issues.push(`${speaker.name} and ${other.name} are only ${Math.round(distance)}\u00B0 apart`);
+            }
+          });
+        });
+        return issues;
+      }
+
+      function nonDialogueCueIssues(cues) {
         return (cues || [])
-          .filter((cue) => cue.type === "sound")
+          .filter((cue) => cue.type !== "dialogue")
           .flatMap((cue) => {
             const issues = [];
-            const text = String(cue.text || "");
-            if (/^\s*\[/.test(text) || /\]\s*$/.test(text)) {
-              issues.push(`${cue.id} stores brackets in cue.text; store plain text and let rendering add brackets`);
+            const text = String(cue.text || "").trim();
+            if (/^[[\u266a\u266b]|[\]\u266a\u266b]$/.test(text)) {
+              issues.push(`${cue.id} stores brackets or music notes in its text; store plain text and let rendering add them`);
             }
-            if (!cue.words || cue.words.length !== 1) {
-              issues.push(`${cue.id} should use one word timing record so the bracketed sound renders as one phrase unit`);
-            }
-            if (cue.speakerId) issues.push(`${cue.id} should not have a speaker color assignment`);
+            if (cue.speakerId) issues.push(`${cue.id} is a ${cue.type} cue and should not have a speaker color`);
             return issues;
           });
       }
 
-      function volumePolicyIssues(cues) {
-        return (cues || []).flatMap((cue) => (cue.words || []).flatMap((word) => {
-          const volume = Number(word.volumePercent);
-          if (!Number.isFinite(volume)) return [`${word.id || cue.id} is missing volumePercent`];
-          const ratio = volumePercentToScreenRatio(volume);
-          if (ratio < CWI_CAPTION_MIN_SCREEN_RATIO || ratio > CWI_CAPTION_MAX_SCREEN_RATIO) {
-            return [`${word.id || cue.id} maps outside the 3%-12% type-size policy range`];
-          }
-          return [];
-        }));
+      // Doc QA: normal speaking volume returns to the 5% baseline.
+      function volumeBaselineIssues(cues) {
+        const words = (cues || []).flatMap((cue) => cue.type === "dialogue" ? (cue.words || []) : []);
+        if (!words.length) return [];
+        const sized = words.filter((word) => Math.abs(cwiNumber(word.volumePercent, CWI_NEUTRAL_VOLUME) - CWI_NEUTRAL_VOLUME) > NEUTRAL_VOLUME_TOLERANCE);
+        if (sized.length / words.length > MAX_SIZED_WORD_SHARE) {
+          return [`${sized.length} of ${words.length} dialogue words are sized louder or softer than normal; most speech should stay at the 5% baseline`];
+        }
+        return [];
       }
 
-      function readAheadPolicyIssues(cues) {
+      function wordTimingIssues(cues) {
         return (cues || [])
           .filter((cue) => cue.type === "dialogue")
           .flatMap((cue) => {
             const words = cue.words || [];
+            const issues = [];
             const normalizedCueText = normalizeTranscriptReferenceText(cue.text);
             const normalizedWordText = normalizeTranscriptReferenceText(words.map((word) => word.text).join(" "));
-            const issues = [];
             if (!normalizedCueText || normalizedCueText !== normalizedWordText) {
               issues.push(`${cue.id} cue text does not match its word read-ahead text`);
             }
             if (words.some((word) => Number(word.start) < Number(cue.start) || Number(word.end) > Number(cue.end))) {
               issues.push(`${cue.id} has word timing outside the cue range`);
+            }
+            if (words.some((word, index) => index > 0 && Number(word.start) < Number(words[index - 1].start))) {
+              issues.push(`${cue.id} has word onsets out of order`);
             }
             return issues;
           });
@@ -2002,19 +2322,22 @@
         const words = (cues || []).flatMap((cue) => cue.type === "dialogue" ? (cue.words || []) : []);
         if (!words.length) return [];
 
-        const overrideWords = words.filter((word) => {
-          const weight = Number(word.pitchWeight);
-          const width = Number(word.pitchWidth);
-          return Math.abs((Number.isFinite(weight) ? weight : 400) - 400) >= 120 ||
-            Math.abs((Number.isFinite(width) ? width : 100) - 100) >= 10;
-        });
-
-        const overrideRatio = overrideWords.length / words.length;
-        if (overrideRatio > 0.2) {
-          return [`${overrideWords.length} of ${words.length} dialogue words have tone overrides; keep pitch styling sparse and editorial`];
+        const issues = [];
+        const contradicting = words.filter((word) => !cwiToneInBand(word.pitchWeight, word.pitchWidth));
+        if (contradicting.length) {
+          issues.push(`${contradicting.slice(0, 3).map((word) => `"${word.text}"`).join(", ")} pair weight and width against the voice (heavy with narrow, or light with wide)`);
         }
 
-        return [];
+        const overrideWords = words.filter((word) => {
+          const weight = cwiNumber(word.pitchWeight, CWI_STYLE.type.defaultWeight);
+          const width = cwiNumber(word.pitchWidth, CWI_STYLE.type.defaultWidth);
+          return Math.abs(weight - CWI_STYLE.type.defaultWeight) >= 120 || Math.abs(width - CWI_STYLE.type.defaultWidth) >= 10;
+        });
+        if (overrideWords.length / words.length > 0.2) {
+          issues.push(`${overrideWords.length} of ${words.length} dialogue words have tone overrides; keep pitch styling sparse and editorial`);
+        }
+
+        return issues;
       }
 
       function findMissingImportedFields(raw) {
@@ -2096,7 +2419,8 @@
 
       function getCurrentCueAndWord() {
         const mediaTime = currentMediaTime();
-        const cue = state.cwi.cues.find((item) => isCueLive(item, mediaTime));
+        const live = cwiLiveCues(state.cwi, mediaTime);
+        const cue = live[live.length - 1];
         if (!cue) return { cueId: "", wordId: "" };
         if (cue.type !== "dialogue") {
           return { cueId: cue.id, wordId: cue.words && cue.words[0] ? cue.words[0].id : "" };
@@ -2116,59 +2440,6 @@
 
       function isWordLive(word, time) {
         return time >= Number(word.start) && time <= Number(word.end);
-      }
-
-      function aeWordMotionState(cue, word, wordIndex, time, fontSize = captionFontSizePx()) {
-        const idle = { transform: "", spoken: false, active: false, anticipating: false };
-        if (!cue || cue.type !== "dialogue" || !word) return idle;
-
-        const start = Number(word.start);
-        const end = Number(word.end);
-        if (!Number.isFinite(start)) return idle;
-
-        const anticipationSeconds = CWI_AE_ANTICIPATION_FRAMES / CWI_AE_FRAME_RATE;
-        const spoken = time >= start;
-        const active = Number.isFinite(end) && end > start && time >= start && time <= end;
-        const anticipating = !spoken && time >= start - anticipationSeconds;
-        let yEm = 0;
-        let scale = 1;
-
-        if (active) {
-          const progress = clamp((time - start) / (end - start), 0, 1);
-          yEm = -CWI_AE_WORD_LIFT_EM * Math.sin(Math.PI * progress);
-          scale = 1 + (volumeScaleForWord(word) - 1) * activeWordScaleEnvelope(progress, end - start);
-        } else if (anticipating) {
-          const progress = clamp((time - (start - anticipationSeconds)) / anticipationSeconds, 0, 1);
-          yEm = CWI_AE_ANTICIPATION_DIP_EM * Math.sin(Math.PI * progress);
-        }
-
-        const transforms = [];
-        if (yEm) transforms.push(`translateY(${(yEm * fontSize).toFixed(2)}px)`);
-        if (scale !== 1) transforms.push(`scale(${scale.toFixed(3)})`);
-
-        return {
-          transform: transforms.join(" "),
-          spoken,
-          active,
-          anticipating
-        };
-      }
-
-      function activeWordScaleEnvelope(progress, duration) {
-        const transition = Math.min(CWI_AE_WORD_TRANSITION_SECONDS, duration / 2);
-        if (transition <= 0) return 1;
-        const transitionProgress = transition / duration;
-        if (progress < transitionProgress) {
-          return easeInOutSine(progress / transitionProgress);
-        }
-        if (progress > 1 - transitionProgress) {
-          return easeInOutSine((1 - progress) / transitionProgress);
-        }
-        return 1;
-      }
-
-      function easeInOutSine(progress) {
-        return 0.5 - Math.cos(Math.PI * clamp(progress, 0, 1)) / 2;
       }
 
       function hasTimingWarning(cue, word) {
@@ -2195,142 +2466,6 @@
         state.selectedWordId = words[nextIndex].id;
       }
 
-      function captionFontSizePx() {
-        return Math.round(Math.max(CWI_CAPTION_MIN_FONT_PX, captionFrameHeight() * CWI_CAPTION_BASE_SCREEN_RATIO));
-      }
-
-      function captionLineStyle(fontSize = captionFontSizePx(), line = []) {
-        return [
-          `font-size: ${fontSize}px`,
-          `--caption-box-padding-y: ${CWI_BOX_VERTICAL_PADDING_EM}em`,
-          `--caption-box-padding-x: ${CWI_BOX_HORIZONTAL_PADDING_EM}em`
-        ].join("; ");
-      }
-
-      function captionLayoutForItems(items) {
-        const safeWidth = captionSafeWidth();
-        const baseFontSize = captionFontSizePx();
-        const single = captionLineWidth(items, baseFontSize);
-        if (single <= safeWidth) return { lines: [items], fontSize: baseFontSize, overflow: false };
-
-        const fallback = bestTwoLineCaptionSplit(items, baseFontSize);
-        return {
-          lines: fallback.lines,
-          fontSize: baseFontSize,
-          overflow: fallback.width > safeWidth
-        };
-      }
-
-      function bestTwoLineCaptionSplit(items, fontSize) {
-        if (items.length <= 1) {
-          return { lines: [items], width: captionLineWidth(items, fontSize) };
-        }
-
-        let best = null;
-        for (let splitIndex = 1; splitIndex < items.length; splitIndex += 1) {
-          const lines = [items.slice(0, splitIndex), items.slice(splitIndex)];
-          const width = Math.max(captionLineWidth(lines[0], fontSize), captionLineWidth(lines[1], fontSize));
-          if (!best || width < best.width) best = { lines, width };
-        }
-
-        return best;
-      }
-
-      function captionLineWidth(items, fontSize) {
-        const text = items.map((item) => item.text).join(" ");
-        const textWidth = measureCaptionText(text, fontSize);
-        return textWidth + fontSize * CWI_BOX_HORIZONTAL_PADDING_EM * 2;
-      }
-
-      function measureCaptionText(text, fontSize) {
-        const context = captionMeasureContext();
-        if (!context) return String(text || "").length * fontSize * 0.55;
-        const family = els.captionSafe ? getComputedStyle(els.captionSafe).fontFamily : "sans-serif";
-        context.font = `400 ${fontSize}px ${family}`;
-        return context.measureText(String(text || "")).width;
-      }
-
-      function captionMeasureContext() {
-        if (!els.captionMeasureCanvas) {
-          els.captionMeasureCanvas = document.createElement("canvas");
-        }
-        return els.captionMeasureCanvas.getContext("2d");
-      }
-
-      function captionSafeWidth() {
-        const safeWidth = els.captionSafe ? els.captionSafe.clientWidth : 0;
-        if (safeWidth > 0) return safeWidth;
-        const frame = document.querySelector(".phone-frame");
-        return frame ? frame.clientWidth * 0.89 : 960;
-      }
-
-      function captionFrameHeight() {
-        const frame = document.querySelector(".phone-frame");
-        return frame && frame.clientHeight ? frame.clientHeight : 560;
-      }
-
-      function captionTextItems(text) {
-        return String(text || "").split(/\s+/).filter(Boolean).map((part) => ({ text: part }));
-      }
-
-      function captionTextItemsFromWords(words) {
-        return words.map((word, wordIndex) => ({
-          text: String(word.text || ""),
-          word,
-          wordIndex
-        }));
-      }
-
-      function renderCaptionStack(linesHtml, layout) {
-        const lineClass = layout.lines.length > 1 ? "two-lines" : "one-line";
-        const overflow = layout.overflow ? " caption-overflow" : "";
-        return `<div class="caption-stack ${lineClass}${overflow}" data-caption-overflow="${layout.overflow}">${linesHtml}</div>`;
-      }
-
-      function captionLayoutForCue(cue) {
-        if (!cue) return { lines: [], fontSize: captionFontSizePx(), overflow: false };
-        if (cue.type === "sound") {
-          return captionLayoutForItems(captionTextItems(`[${stripCueDecorators(cue.text)}]`));
-        }
-        if (cue.type === "music") return captionLayoutForItems(captionTextItems(`\u266a ${stripCueDecorators(cue.text)} \u266a`));
-
-        const words = cue.words && cue.words.length ? cue.words : wordsFromCueText(cue);
-        return captionLayoutForItems(captionTextItemsFromWords(words));
-      }
-
-      function volumeToPercent(volumePercent) {
-        return volumePercentToScreenRatio(volumePercent) * 100;
-      }
-
-      function captionFontSizeForVolume(volumePercent) {
-        return Math.round(Math.max(CWI_CAPTION_MIN_FONT_PX, captionFrameHeight() * volumePercentToScreenRatio(volumePercent)));
-      }
-
-      function volumeScaleForWord(word) {
-        if (!word) return 1;
-        return captionFontSizeForVolume(word.volumePercent) / captionFontSizePx();
-      }
-
-      function soundCueScale(cue, word, time) {
-        const targetScale = volumeScaleForWord(word);
-        if (targetScale <= 1) return targetScale;
-
-        const cueStart = word && Number.isFinite(Number(word.start)) ? Number(word.start) : Number(cue.start);
-        const progress = clamp((time - cueStart) / CWI_SOUND_POP_SECONDS, 0, 1);
-        const sustainScale = 1 + (targetScale - 1) * CWI_SOUND_SUSTAIN_SCALE_FACTOR;
-        if (progress >= 1) return sustainScale;
-
-        return 1 + (targetScale - 1) * Math.sin(Math.PI * progress);
-      }
-
-      function volumePercentToScreenRatio(volumePercent) {
-        const volume = clamp(Number(volumePercent) || 0, 0, 100);
-        if (volume <= 50) {
-          return CWI_CAPTION_MIN_SCREEN_RATIO + (volume / 50) * (CWI_CAPTION_BASE_SCREEN_RATIO - CWI_CAPTION_MIN_SCREEN_RATIO);
-        }
-        return CWI_CAPTION_BASE_SCREEN_RATIO + ((volume - 50) / 50) * (CWI_CAPTION_MAX_SCREEN_RATIO - CWI_CAPTION_BASE_SCREEN_RATIO);
-      }
-
       function getDuration() {
         if (Number.isFinite(els.video.duration) && els.video.duration > 0) return els.video.duration;
         return Number(state.cwi.project.duration) || 0;
@@ -2338,6 +2473,11 @@
 
       function currentMediaTime() {
         if (state.previewTimeOverride !== null && els.video.paused) return state.previewTimeOverride;
+        const anchor = state.frameAnchor;
+        if (anchor && !els.video.paused) {
+          const elapsed = (performance.now() - anchor.wallTime) / 1000;
+          if (elapsed >= 0 && elapsed < 0.25) return anchor.mediaTime + elapsed * (els.video.playbackRate || 1);
+        }
         return els.video.currentTime || 0;
       }
 
@@ -2357,29 +2497,6 @@
           }
         }
         els.video.currentTime = time;
-      }
-
-      function formatCueText(cue) {
-        if (!cue) return "";
-        if (cue.type === "sound") return `[${stripCueDecorators(cue.text)}]`;
-        if (cue.type === "music") return `\u266a ${stripCueDecorators(cue.text)} \u266a`;
-        return cue.text || "";
-      }
-
-      function stripCueDecorators(text) {
-        return String(text || "").replace(/^\s*\[/, "").replace(/\]\s*$/, "").replace(/^\s*\u266a\s*/, "").replace(/\s*\u266a\s*$/, "");
-      }
-
-      function wordsFromCueText(cue) {
-        return String(cue.text || "").split(/\s+/).filter(Boolean).map((text, index) => ({
-          id: `${cue.id}-generated-${index}`,
-          text,
-          start: cue.start,
-          end: cue.end,
-          volumePercent: 50,
-          pitchWeight: 400,
-          pitchWidth: 100
-        }));
       }
 
       function speakerName(speakerId) {

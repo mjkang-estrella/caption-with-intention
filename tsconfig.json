@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "removeComments": false
   },
-  "files": ["src/model.ts", "src/app.ts"]
+  "files": ["src/model.ts", "src/cwi-spec.ts", "src/renderer.ts", "src/app.ts"]
 }
