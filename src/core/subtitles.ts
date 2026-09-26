@@ -1,9 +1,9 @@
 // SRT and WebVTT import: parse cues and turn them into an editable CWI project.
 
-import type { Cue, CueType, Project, ProjectMeta, SubtitleCue } from "./types.ts";
+import type { Cue, CueType, Project, ProjectMeta, Speaker, SubtitleCue } from "./types.ts";
 import { DEFAULT_FRAME_RATE, SCHEMA_VERSION } from "./schema.ts";
 import { stripDecorators } from "./renderer.ts";
-import { buildWordsForCueText, createUnknownSpeaker } from "./edit.ts";
+import { buildWordsForCueText, createUnknownSpeaker, nextSpeakerColor, uniqueId } from "./edit.ts";
 import { fileNameStem, roundTime, slugify } from "./util.ts";
 
 export function parseSubtitleFile(text: string, fileName: string): SubtitleCue[] {
@@ -43,10 +43,18 @@ export function parseWebVtt(text: string): SubtitleCue[] {
       if (timeIndex === -1) return [];
       const times = parseSubtitleTiming(lines[timeIndex]);
       if (!times) return [];
-      const cueText = cleanSubtitleText(lines.slice(timeIndex + 1).join(" "));
+      const rawText = lines.slice(timeIndex + 1).join(" ");
+      const cueText = cleanSubtitleText(rawText);
       if (!cueText) return [];
-      return [{ ...times, text: cueText }];
+      const voices = parseVoiceTags(rawText);
+      return [voices.length ? { ...times, text: cueText, voices } : { ...times, text: cueText }];
     });
+}
+
+// WebVTT voice spans: <v Name> or <v.class1.class2 Name>. Returns distinct names in order.
+export function parseVoiceTags(text: string): string[] {
+  const names = Array.from(String(text || "").matchAll(/<v(?:\.[^\s>]*)?\s+([^>]+?)\s*>/g), (match) => decodeHtmlEntities(match[1]).trim());
+  return names.filter((name, index) => name && names.indexOf(name) === index);
 }
 
 export function parseSubtitleTiming(line: string): { start: number; end: number } | null {
@@ -98,8 +106,12 @@ export function cueTypeForSubtitleText(text: string): CueType {
 }
 
 // `base` carries the current session's project fields (media name, aspect ratio, duration).
+// WebVTT voice tags become speakers; dialogue without one is attributed to Unknown Speaker.
 export function createProjectFromSubtitleCues(subtitleCues: SubtitleCue[], captionFileName: string, base: Partial<ProjectMeta> = {}): Project {
   const unknownSpeaker = createUnknownSpeaker();
+  const isDialogue = (subtitleCue: SubtitleCue) => cueTypeForSubtitleText(subtitleCue.text) === "dialogue";
+  const hasVoices = subtitleCues.some((subtitleCue) => subtitleCue.voices && subtitleCue.voices.length);
+  const needsUnknown = !hasVoices || subtitleCues.some((subtitleCue) => isDialogue(subtitleCue) && !(subtitleCue.voices && subtitleCue.voices.length));
   const project: Project = {
     schemaVersion: SCHEMA_VERSION,
     project: {
@@ -110,18 +122,39 @@ export function createProjectFromSubtitleCues(subtitleCues: SubtitleCue[], capti
       duration: base.duration || 0,
       frameRate: base.frameRate || DEFAULT_FRAME_RATE
     },
-    speakers: [unknownSpeaker],
+    // Unknown Speaker goes first so the voice speakers' colors are chosen around its color.
+    speakers: needsUnknown ? [unknownSpeaker] : [],
     cues: [],
     review: { notes: [], validationStatus: "unchecked" }
   };
 
+  const speakersByVoice = new Map<string, Speaker>();
+  const speakerForVoice = (name: string): Speaker => {
+    const existing = speakersByVoice.get(name);
+    if (existing) return existing;
+    const speaker: Speaker = {
+      id: uniqueId(project, `speaker-${slugify(name)}`),
+      name,
+      role: "supporting",
+      color: nextSpeakerColor(project, "supporting"),
+      defaultOffCamera: false
+    };
+    project.speakers.push(speaker);
+    speakersByVoice.set(name, speaker);
+    return speaker;
+  };
+  const multiVoiceCues: string[] = [];
+
   subtitleCues.forEach((subtitleCue, index) => {
     const cueType = cueTypeForSubtitleText(subtitleCue.text);
     const text = stripDecorators(subtitleCue.text).trim();
+    const voices = subtitleCue.voices || [];
+    const cueId = `cue-${index + 1}`;
+    if (cueType === "dialogue" && voices.length > 1) multiVoiceCues.push(`${cueId} (${voices.join(", ")})`);
     const cue: Cue = {
-      id: `cue-${index + 1}`,
+      id: cueId,
       type: cueType,
-      speakerId: cueType === "dialogue" ? unknownSpeaker.id : "",
+      speakerId: cueType !== "dialogue" ? "" : voices.length ? speakerForVoice(voices[0]).id : unknownSpeaker.id,
       start: subtitleCue.start,
       end: subtitleCue.end,
       text,
@@ -134,6 +167,12 @@ export function createProjectFromSubtitleCues(subtitleCues: SubtitleCue[], capti
     project.cues.push(cue);
   });
 
-  project.review.notes.push(`Imported ${project.cues.length} cues from ${captionFileName || "caption file"}. Speaker identity is set to Unknown Speaker and word timing is estimated from each cue until manually aligned.`);
+  const attribution = speakersByVoice.size
+    ? `Created ${speakersByVoice.size} speakers from WebVTT voice tags${needsUnknown ? "; untagged dialogue is set to Unknown Speaker" : ""}.`
+    : "Speaker identity is set to Unknown Speaker until manually corrected.";
+  project.review.notes.push(`Imported ${project.cues.length} cues from ${captionFileName || "caption file"}. ${attribution} Word timing is estimated from each cue until manually aligned.`);
+  if (multiVoiceCues.length) {
+    project.review.notes.push(`These cues have more than one voice tag and were attributed to the first voice; split them to credit each speaker: ${multiVoiceCues.join("; ")}.`);
+  }
   return project;
 }

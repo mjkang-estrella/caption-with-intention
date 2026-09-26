@@ -194,5 +194,6 @@ export interface SubtitleCue {
   start: number;
   end: number;
   text: string;
-  voice?: string;
+  // WebVTT voice (<v Name>) tags in the order they appear in the cue.
+  voices?: string[];
 }

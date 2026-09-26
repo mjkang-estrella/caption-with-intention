@@ -78,7 +78,7 @@ The renderer drives motion from a continuous word cursor, like the template's ra
 
 The prototype has no backend and no upload path. Imported media stays in the browser as a local object URL, and the bundled sample media is loaded from `reference/`.
 
-When a user imports media, the demo transcript is cleared and the editor prompts for an SRT or WebVTT caption file. Caption import creates editable CWI cues with estimated word timing, starts dialogue with an `Unknown Speaker`, keeps sound effects and music speakerless, and runs a best-effort browser-only volume analysis. The analysis compares each word with the median speech level: words within 3 dB stay at the normal size, and larger differences grow toward the shout size or shrink toward the whisper size.
+When a user imports media, the demo transcript is cleared and the editor prompts for an SRT or WebVTT caption file. Caption import creates editable CWI cues with estimated word timing, turns WebVTT voice tags (`<v Name>`) into speakers with distinct colors, attributes untagged dialogue to `Unknown Speaker`, keeps sound effects and music speakerless, and runs a best-effort browser-only volume analysis. The analysis compares each word with the median speech level: words within 3 dB stay at the normal size, and larger differences grow toward the shout size or shrink toward the whisper size.
 
 Tone weight and width fields are stored as optional editorial overrides. They should be used sparingly for unusually deep, sharp, tense, or stylized delivery rather than applied continuously to every spoken word.
 

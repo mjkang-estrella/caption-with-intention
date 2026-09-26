@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  createProjectFromSubtitleCues, cueTypeForSubtitleText, decodeHtmlEntities, parseSrt, parseSubtitleFile, parseWebVtt
+  createProjectFromSubtitleCues, cueTypeForSubtitleText, decodeHtmlEntities, parseSrt, parseSubtitleFile, parseVoiceTags, parseWebVtt
 } from "../src/core/subtitles.ts";
+import { speakerColorIssues } from "../src/core/qa.ts";
 
 test("SRT: numbered blocks, CRLF, multi-line text, markup, and entities", () => {
   const srt = "1\r\n00:00:01,000 --> 00:00:02,500\r\n<i>Hello</i> &amp; welcome,\r\nfriend\r\n\r\n2\r\n00:00:03,000 --> 00:00:04,000\r\nIt&#39;s {\\an8}fine\r\n";
@@ -78,4 +79,56 @@ test("imported cues become an editable project with estimated word timing", () =
   assert.ok(dialogue.words.every((word, index) => word.start >= dialogue.start && word.end <= dialogue.end && (index === 0 || word.start >= dialogue.words[index - 1].start)));
   assert.equal(new Set(project.cues.flatMap((cue) => cue.words.map((word) => word.id))).size, 8, "word ids are unique");
   assert.match(project.review.notes[0], /Imported 3 cues from clip\.srt/);
+});
+
+test("WebVTT voice tags are read, including classes and entities, without duplicates", () => {
+  assert.deepEqual(parseVoiceTags("<v Marty>Hey</v> <v.loud.angry Biff>Hey, McFly!</v> <v Marty>again</v>"), ["Marty", "Biff"]);
+  assert.deepEqual(parseVoiceTags("<v Tom &amp; Jerry>Hi</v>"), ["Tom & Jerry"]);
+  assert.deepEqual(parseVoiceTags("<i>No voices</i>"), []);
+
+  const [cue] = parseWebVtt("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n<v.shout Biff>Hey, McFly!</v>");
+  assert.deepEqual(cue, { start: 1, end: 2, text: "Hey, McFly!", voices: ["Biff"] });
+});
+
+test("voice tags become speakers with distinct colors; untagged dialogue stays Unknown", () => {
+  const vtt = [
+    "WEBVTT",
+    "",
+    "00:00:01.000 --> 00:00:02.000",
+    "<v Marty>You know where 1640 Riverside Drive is?",
+    "",
+    "00:00:03.000 --> 00:00:04.000",
+    "<v Lou>Are you gonna order something, kid?",
+    "",
+    "00:00:05.000 --> 00:00:06.000",
+    "<v Marty>Yeah, give me a Tab.",
+    "",
+    "00:00:07.000 --> 00:00:08.000",
+    "Something without sugar.",
+    "",
+    "00:00:09.000 --> 00:00:10.000",
+    "<v Biff>Hey,</v> <v Marty>McFly?</v>",
+    "",
+    "00:00:11.000 --> 00:00:12.000",
+    "[door crack]"
+  ].join("\n");
+  const project = createProjectFromSubtitleCues(parseSubtitleFile(vtt, "scene.vtt"), "scene.vtt");
+
+  assert.deepEqual(project.speakers.map((speaker) => speaker.name), ["Unknown Speaker", "Marty", "Lou", "Biff"]);
+  const byName = new Map(project.speakers.map((speaker) => [speaker.name, speaker.id]));
+  assert.deepEqual(project.cues.map((cue) => cue.speakerId), [
+    byName.get("Marty"), byName.get("Lou"), byName.get("Marty"), byName.get("Unknown Speaker"), byName.get("Biff"), ""
+  ]);
+  assert.equal(new Set(project.speakers.map((speaker) => speaker.id)).size, 4);
+  assert.deepEqual(speakerColorIssues(project.speakers), []);
+  assert.match(project.review.notes[0], /Created 3 speakers from WebVTT voice tags; untagged dialogue is set to Unknown Speaker/);
+  assert.match(project.review.notes[1], /cue-5 \(Biff, Marty\)/);
+});
+
+test("fully tagged files skip Unknown Speaker; files without tags keep it", () => {
+  const tagged = createProjectFromSubtitleCues([{ start: 1, end: 2, text: "Hi", voices: ["Ana"] }], "a.vtt");
+  assert.deepEqual(tagged.speakers.map((speaker) => speaker.name), ["Ana"]);
+
+  const soundOnly = createProjectFromSubtitleCues([{ start: 1, end: 2, text: "[thunder]" }], "b.srt");
+  assert.deepEqual(soundOnly.speakers.map((speaker) => speaker.name), ["Unknown Speaker"]);
 });
